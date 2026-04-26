@@ -588,6 +588,69 @@ def fair_strike_correlation_swap(
     }
 
 
+def _ar_params_from_rho_clean(
+    rho_clean: pd.Series,
+    delta_t: float,
+    ar_p: int,
+) -> dict:
+    """OLS AR(p) на очищенном ряду ρ → kappa, rho_bar, rho0 (без цены свопа)."""
+    n = rho_clean.shape[0]
+    if n < ar_p + 1:
+        raise ValueError(f"Need at least ar_p+1={ar_p+1} rho points for estimation")
+
+    vals = rho_clean.values.astype(float)
+    Y = vals[ar_p:]
+    X_cols = [np.ones(n - ar_p)]
+    for lag in range(1, ar_p + 1):
+        X_cols.append(vals[ar_p - lag : n - lag])
+    X = np.column_stack(X_cols)
+    beta, *_ = np.linalg.lstsq(X, Y, rcond=None)
+    intercept = float(beta[0])
+    phis = np.array([float(b) for b in beta[1:]], dtype=float)
+
+    b_eff = float(np.sum(phis))
+    if abs(b_eff) >= 1:
+        kappa = float("nan")
+    else:
+        kappa = (
+            float(-np.log(b_eff) / delta_t)
+            if (b_eff > 0 and not np.isclose(b_eff, 0))
+            else float("nan")
+        )
+    rho_bar = float(intercept / (1 - b_eff)) if not np.isclose(1 - b_eff, 0) else float("nan")
+    rho0 = float(rho_clean.iloc[-1])
+
+    return {
+        "kappa": kappa,
+        "rho_bar": rho_bar,
+        "rho0": rho0,
+        "phi": phis,
+        "intercept": intercept,
+    }
+
+
+def fair_strike_from_mean_reversion(
+    rho_bar: float,
+    kappa: float,
+    rho0: float,
+    T_years: float,
+) -> float:
+    """Fair strike по ``rho_bar``, ``kappa``, ``rho0`` и горизонту ``T_years`` (в годах)."""
+    T_years = float(T_years)
+    if T_years <= 0 or not math.isfinite(T_years):
+        return float("nan")
+    rb = float(rho_bar)
+    r0 = float(rho0)
+    if not math.isfinite(rb) or not math.isfinite(r0):
+        return float("nan")
+    kap = float(kappa)
+    if math.isnan(kap) or math.isclose(kap, 0.0):
+        factor = 1.0
+    else:
+        factor = (1.0 - math.exp(-kap * T_years)) / (kap * T_years)
+    return float(rb + (r0 - rb) * factor)
+
+
 def fair_strike_from_rho_series(
     rho: pd.Series,
     delta_t: float = 1 / 252,
@@ -632,46 +695,17 @@ def fair_strike_from_rho_series(
         * ``rho_series`` – the cleaned input series used for estimation
     """
     rho_clean = rho.dropna().astype(float)
-    n = rho_clean.shape[0]
-    if n < ar_p + 1:
-        raise ValueError(f"Need at least ar_p+1={ar_p+1} rho points for estimation")
-
-    vals = rho_clean.values
-    # build regression matrix with p lags
-    Y = vals[ar_p:]
-    X_cols = [np.ones(n - ar_p)]
-    for lag in range(1, ar_p + 1):
-        X_cols.append(vals[ar_p - lag : n - lag])
-    X = np.column_stack(X_cols)
-    beta, *_ = np.linalg.lstsq(X, Y, rcond=None)
-    intercept = float(beta[0])
-    phis = np.array([float(b) for b in beta[1:]], dtype=float)
-
-    b_eff = float(np.sum(phis))
-    # ensure stationarity: if effective AR coefficient >=1 or <=-1,
-    # treat as non‑mean‑reverting to prevent explosive behaviour.
-    if abs(b_eff) >= 1:
-        kappa = np.nan
-    else:
-        kappa = -np.log(b_eff) / delta_t if (b_eff > 0 and not np.isclose(b_eff, 0)) else np.nan
-    rho_bar = intercept / (1 - b_eff) if not np.isclose(1 - b_eff, 0) else np.nan
-    rho0 = float(rho_clean.iloc[-1])
-
-    if np.isnan(kappa) or np.isclose(kappa, 0):
-        # no or infinite mean reversion: fair strike equals last observation
-        factor = 1.0
-    else:
-        factor = (1 - np.exp(-kappa * T)) / (kappa * T)
-
-    K_fair = rho_bar + (rho0 - rho_bar) * factor
-
+    par = _ar_params_from_rho_clean(rho_clean, delta_t, ar_p)
+    K_fair = fair_strike_from_mean_reversion(
+        par["rho_bar"], par["kappa"], par["rho0"], float(T)
+    )
     return {
         "K_fair": float(K_fair),
-        "kappa": float(kappa) if not np.isnan(kappa) else np.nan,
-        "rho_bar": float(rho_bar) if not np.isnan(rho_bar) else np.nan,
-        "rho0": rho0,
-        "phi": phis,
-        "intercept": intercept,
+        "kappa": par["kappa"],
+        "rho_bar": par["rho_bar"],
+        "rho0": par["rho0"],
+        "phi": par["phi"],
+        "intercept": par["intercept"],
         "rho_series": rho_clean,
     }
 
@@ -1351,6 +1385,153 @@ def build_correlation_swap_ml_dataset(
         na_position="last",
     ).reset_index(drop=True)
     return out
+
+
+def _pair_rolling_rho_log_returns(
+    lr1: pd.Series,
+    lr2: pd.Series,
+    date_hi: pd.Timestamp,
+    date_lo_ret: pd.Timestamp,
+    corr_window: int,
+) -> pd.Series:
+    """Скользящая корреляция двух рядов лог-доходностей на [date_lo_ret, date_hi]."""
+    df = pd.concat([lr1.rename("a"), lr2.rename("b")], axis=1).dropna()
+    df = df.sort_index()
+    t0, t1 = pd.Timestamp(date_lo_ret).normalize(), pd.Timestamp(date_hi).normalize()
+    df = df.loc[(df.index >= t0) & (df.index <= t1)]
+    if len(df) < corr_window:
+        return pd.Series(dtype=float)
+    rho = df["a"].rolling(corr_window, min_periods=corr_window).corr(df["b"])
+    return rho.dropna()
+
+
+def build_fair_correlation_term_structure_dataset(
+    price_data: Dict[str, pd.DataFrame],
+    *,
+    date1_starts: Optional[Sequence[Union[str, pd.Timestamp]]] = None,
+    forward_calendar_days: Optional[int] = None,
+    date1_start: Union[str, pd.Timestamp] = "2000-01-31",
+    date1_end: Union[str, pd.Timestamp] = "2025-12-31",
+    date1_freq: str = "ME",
+    ar_lookback_years: int = 1,
+    corr_window: int = 21,
+    ar_p: int = 1,
+    delta_t: float = 1 / 252,
+    T_days_max: int = 5 * 365,
+    T_days_step: int = 1,
+    T_days_basis: str = "calendar",
+    min_rho_points: int = 80,
+    extra_warm_bdays: int = 15,
+) -> pd.DataFrame:
+    """Датасет «честных» страйков корр. свопа на сетке дат и сроков.
+
+    **Режим якорей** (рекомендуется): передайте ``date1_starts=[d_a, d_b, ...]``. Для **каждого**
+    якоря строится календарная цепочка дат переоценки
+    ``anchor + 0 дней, anchor + 1 день, …, anchor + (forward_calendar_days − 1) дней``
+    (без дополнительной помесячной сетки). Если ``forward_calendar_days is None``, берётся
+    **5·365** (как «пять календарных лет» точек на якорь).
+
+    **Устаревший режим**: ``date1_starts is None`` — как раньше, ``pd.date_range`` от
+    ``date1_start`` до ``date1_end`` с частотой ``date1_freq`` (напр. конец месяца); параметр
+    ``forward_calendar_days`` в этом режиме **не используется**.
+
+    На каждую ``date1`` и пару активов: ρ на **[date1 − ar_lookback_years, date1]** → AR → для
+    каждого ``T_days`` = 1, 1+step, …, ``T_days_max`` считается ``K_fair``
+    (:func:`fair_strike_from_mean_reversion`).
+
+    Columns: ``date1``, ``T_days``, ``asset1``, ``asset2``, ``K_fair``.
+
+    Объём строк ≈ ``N_якорей × forward_calendar_days × N_pairs × (T_days_max / step)`` в режиме
+    якорей — при больших константах сокращайте список активов, ``T_days_max`` или шаг по сроку.
+    """
+    if T_days_basis not in ("calendar", "trading"):
+        raise ValueError("T_days_basis must be 'calendar' or 'trading'")
+    if T_days_max < 1 or T_days_step < 1:
+        raise ValueError("T_days_max and T_days_step must be >= 1")
+
+    log_returns = compute_log_returns_dict(price_data)
+    assets = sorted(log_returns.keys())
+    if len(assets) < 2:
+        return pd.DataFrame(columns=["date1", "T_days", "asset1", "asset2", "K_fair"])
+
+    if date1_starts is not None:
+        anchors = [pd.Timestamp(x).normalize() for x in date1_starts]
+        fwd = 5 * 365 if forward_calendar_days is None else max(1, int(forward_calendar_days))
+        date_grid_list: List[pd.Timestamp] = []
+        for s in anchors:
+            for k in range(fwd):
+                date_grid_list.append(pd.Timestamp(s + pd.Timedelta(days=int(k))).normalize())
+        date_grid = date_grid_list
+    else:
+        d0 = pd.to_datetime(date1_start)
+        d1 = pd.to_datetime(date1_end)
+        try:
+            date_grid = pd.date_range(d0, d1, freq=date1_freq, inclusive="both")
+        except TypeError:
+            date_grid = pd.date_range(d0, d1, freq=date1_freq)
+        date_grid = [pd.Timestamp(x).normalize() for x in date_grid]
+
+    warm = max(corr_window + extra_warm_bdays, corr_window + 5)
+    T_days_arr = np.arange(1, int(T_days_max) + 1, int(T_days_step), dtype=np.int64)
+    if T_days_basis == "calendar":
+        Ty = T_days_arr.astype(float) / 365.0
+    else:
+        Ty = T_days_arr.astype(float) / 252.0
+
+    records: List[dict] = []
+
+    for date1 in date_grid:
+        date1 = pd.Timestamp(date1).normalize()
+        lookback = date1 - pd.DateOffset(years=int(ar_lookback_years))
+        ret_lo = pd.Timestamp(lookback - BDay(warm)).normalize()
+
+        for i, a in enumerate(assets):
+            lr_a = log_returns[a]
+            for j in range(i + 1, len(assets)):
+                b = assets[j]
+
+                #print('generating fair strikes for asset1: ', a, 'and asset2: ', b)
+                lr_b = log_returns[b]
+                rho_full = _pair_rolling_rho_log_returns(
+                    lr_a, lr_b, date1, ret_lo, corr_window
+                )
+                if rho_full.empty:
+                    continue
+                lb_n = pd.Timestamp(lookback).normalize()
+                d1_n = pd.Timestamp(date1).normalize()
+                rho_ar = rho_full.loc[(rho_full.index >= lb_n) & (rho_full.index <= d1_n)]
+                rho_ar = rho_ar.dropna().astype(float)
+                if rho_ar.shape[0] < min_rho_points:
+                    continue
+                try:
+                    par = _ar_params_from_rho_clean(rho_ar, delta_t, ar_p)
+                except (ValueError, np.linalg.LinAlgError):
+                    continue
+
+                kap, rb, r0 = par["kappa"], par["rho_bar"], par["rho0"]
+                if math.isnan(kap) or math.isclose(kap, 0.0):
+                    Ks = np.full(len(Ty), rb + (r0 - rb) * 1.0)
+                else:
+                    Ks = rb + (r0 - rb) * (1.0 - np.exp(-kap * Ty)) / (kap * Ty)
+
+                for k in range(len(T_days_arr)):
+                    records.append(
+                        {
+                            "date1": date1,
+                            "T_days": int(T_days_arr[k]),
+                            "asset1": a,
+                            "asset2": b,
+                            "K_fair": float(Ks[k]),
+                        }
+                    )
+
+    out = pd.DataFrame(records)
+    if out.empty:
+        return pd.DataFrame(columns=["date1", "T_days", "asset1", "asset2", "K_fair"])
+    return (
+        out.sort_values(["date1", "asset1", "asset2", "T_days"])
+        .reset_index(drop=True)
+    )
 
 
 def plot_ml_dataset_fair_vs_realized_for_pair(
