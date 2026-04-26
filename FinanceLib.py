@@ -901,6 +901,10 @@ def realized_correlation_log_returns(
     """Выборочная корреляция Пирсона совмещённых лог-доходностей на отрезке [start, end].
 
     Используется для расчёта реализованной корреляции при погашении корреляционного свопа.
+
+    Если фактические ряды обрываются раньше ``end``, функция всё равно посчитает корреляцию
+    по **доступному** усечённому отрезку (при ``len >= min_obs``). Для ML-датасета полноту
+    горизонта проверяйте отдельно (см. :func:`build_correlation_swap_ml_dataset`).
     """
     p1 = price1.sort_index().astype(float)
     p2 = price2.sort_index().astype(float)
@@ -1191,6 +1195,7 @@ def build_correlation_swap_ml_dataset(
     delta_t: float = 1 / 252,
     min_obs_realized: int = 5,
     include_asset_rows: bool = True,
+    require_full_realized_window: bool = True,
 ) -> pd.DataFrame:
     """Длинный датасет для обучения (подбор номиналов свопов и др.): ASSET + SWAP.
 
@@ -1200,7 +1205,12 @@ def build_correlation_swap_ml_dataset(
     ``ar_rho_history`` (по смыслу ~1 торговый год точек ρ при 252).
 
     **Реальное значение свопа** в колонке ``price``: реализованная корреляция лог-доходностей
-    на отрезке от даты ``d`` до ``d + round(T*252)`` бизнес-дней (согласовано с симуляцией портфеля).
+    на отрезке от даты ``d`` до даты погашения ``d + BDay(round(T*252))`` (как в симуляции портфеля).
+
+    Если ``require_full_realized_window=True`` (по умолчанию), ``price`` считается только если
+    по **обоим** активам последняя доступная дата в выборке не раньше даты погашения
+    ``mat_ts = d + BDay(round(T*252))``. Иначе ``NaN`` — нельзя наблюдать полную реализацию
+    до конца горизонта (типичный случай: большой T и хвост выборки по ценам).
 
     Строки **SWAP** включаются только для дат, где ``K_fair`` успешно посчитан
     (как во внутреннем ряду fair strike). Если ρ_realized не определена — ``price`` будет ``NaN``.
@@ -1210,7 +1220,6 @@ def build_correlation_swap_ml_dataset(
     date, type (SWAP/ASSET), asset1_name, asset2_name, strike (T для SWAP иначе NaN),
     K_fair, price, log_return (только для ASSET).
     """
-    print('Считаем лог-доходности')
     log_returns = compute_log_returns_dict(price_data)
     corr_mats = rolling_correlation_matrices(log_returns, window=corr_window)
     if not corr_mats:
@@ -1239,11 +1248,9 @@ def build_correlation_swap_ml_dataset(
 
     records: List[dict] = []
 
-    print('Генерируем свопы для всех пар активов')
     for i, a in enumerate(assets):
         for j in range(i + 1, len(assets)):
             b = assets[j]
-            print(f'Генерируем свопы для пары {a} и {b}', end=' ')
             if a not in close_px or b not in close_px:
                 continue
             rho = _pairwise_rho_series_from_corr_matrices(corr_mats, a, b)
@@ -1251,7 +1258,6 @@ def build_correlation_swap_ml_dataset(
             if rho.shape[0] < max(ar_rho_history, ar_p + 1, 2):
                 continue
             for T in T_array:
-                print(T, end=' ')
                 T = float(T)
                 if T <= 0:
                     continue
@@ -1270,14 +1276,29 @@ def build_correlation_swap_ml_dataset(
                         continue
                     d_ts = pd.Timestamp(d)
                     mat_ts = pd.Timestamp(d_ts + BDay(n_bd))
-                    rr = realized_correlation_log_returns(
-                        close_px[a],
-                        close_px[b],
-                        d_ts,
-                        mat_ts,
-                        min_obs=min_obs_realized,
-                    )
-                    pr = float(rr) if math.isfinite(rr) else float("nan")
+                    pr = float("nan")
+                    if require_full_realized_window:
+                        last_c = min(close_px[a].index.max(), close_px[b].index.max())
+                        if pd.Timestamp(last_c).normalize() < pd.Timestamp(mat_ts).normalize():
+                            pr = float("nan")
+                        else:
+                            rr = realized_correlation_log_returns(
+                                close_px[a],
+                                close_px[b],
+                                d_ts,
+                                mat_ts,
+                                min_obs=min_obs_realized,
+                            )
+                            pr = float(rr) if math.isfinite(rr) else float("nan")
+                    else:
+                        rr = realized_correlation_log_returns(
+                            close_px[a],
+                            close_px[b],
+                            d_ts,
+                            mat_ts,
+                            min_obs=min_obs_realized,
+                        )
+                        pr = float(rr) if math.isfinite(rr) else float("nan")
                     records.append(
                         {
                             "date": d_ts,
@@ -1290,12 +1311,9 @@ def build_correlation_swap_ml_dataset(
                             "log_return": float("nan"),
                         }
                     )
-            print()
 
-    print('Генерируем строки для базовых активов')
     if include_asset_rows:
         for a, ser in close_px.items():
-            print(f'Генерируем строки для актива {a}')
             lr = np.log(ser.astype(float) / ser.astype(float).shift(1))
             for dt in ser.index:
                 px = float(ser.loc[dt])
@@ -1333,6 +1351,103 @@ def build_correlation_swap_ml_dataset(
         na_position="last",
     ).reset_index(drop=True)
     return out
+
+
+def plot_ml_dataset_fair_vs_realized_for_pair(
+    ml_df: pd.DataFrame,
+    asset1: str,
+    asset2: str,
+    *,
+    ncols: int = 3,
+    figsize: Optional[Tuple[float, float]] = None,
+    title: Optional[str] = None,
+) -> plt.Figure:
+    """Для одной пары активов: подграфик на каждый ``strike`` (срочность T).
+
+    На каждом subplot две линии по оси X — дата, по Y — теоретический fair strike
+    ``K_fair`` и реализованная корреляция ``price`` (ρ\\_realized) из
+    :func:`build_correlation_swap_ml_dataset`.
+    """
+    need = {"date", "type", "asset1_name", "asset2_name", "strike", "K_fair", "price"}
+    miss = need - set(ml_df.columns)
+    if miss:
+        raise KeyError(f"В ml_df нет колонок: {miss}")
+
+    sw = ml_df.loc[ml_df["type"] == "SWAP"]
+    pair_mask = (
+        (sw["asset1_name"] == asset1) & (sw["asset2_name"] == asset2)
+    ) | (
+        (sw["asset1_name"] == asset2) & (sw["asset2_name"] == asset1)
+    )
+    sub = sw.loc[pair_mask].copy()
+    if sub.empty:
+        raise ValueError(f"Нет строк SWAP для пары ({asset1!r}, {asset2!r})")
+
+    strikes = sorted(sub["strike"].dropna().astype(float).unique().tolist())
+    n = len(strikes)
+    nrows = int(math.ceil(n / max(1, ncols)))
+    if figsize is None:
+        figsize = (4.0 * min(ncols, n), 3.0 * max(1, nrows))
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, squeeze=False, sharex=False, sharey=False)
+    flat = axes.flatten()
+
+    for k, T in enumerate(strikes):
+        ax = flat[k]
+        g = sub.loc[np.isclose(sub["strike"].astype(float), float(T))].sort_values("date")
+        if g.empty:
+            continue
+        ax.plot(
+            g["date"],
+            g["K_fair"].astype(float),
+            label="K_fair (прогноз)",
+            linewidth=1.2,
+            alpha=0.9,
+        )
+        ax.plot(
+            g["date"],
+            g["price"].astype(float),
+            label="ρ realized (реализация)",
+            linewidth=1.2,
+            alpha=0.9,
+        )
+        ax.set_title(f"Strike T = {T:g} (годы)")
+        ax.set_xlabel("Дата")
+        ax.set_ylabel("Корреляция")
+        ax.legend(loc="best", fontsize=8)
+        ax.grid(True, alpha=0.25)
+        ax.axhline(0.0, color="gray", linewidth=0.7, linestyle="--")
+
+    for k in range(len(strikes), len(flat)):
+        flat[k].set_visible(False)
+
+    fig.suptitle(title or f"{asset1} — {asset2}", fontsize=12, y=1.02)
+    fig.tight_layout()
+    return fig
+
+
+def plot_ml_dataset_fair_vs_realized_all_pairs(
+    ml_df: pd.DataFrame,
+    *,
+    ncols: int = 3,
+    figsize: Optional[Tuple[float, float]] = None,
+) -> List[plt.Figure]:
+    """По одной фигуре на каждую пару из SWAP-строк ``ml_df`` (см. :func:`plot_ml_dataset_fair_vs_realized_for_pair`)."""
+    sw = ml_df.loc[ml_df["type"] == "SWAP"]
+    if sw.empty:
+        return []
+    figures: List[plt.Figure] = []
+    for (a1, a2), _ in sw.groupby(["asset1_name", "asset2_name"], sort=False):
+        fig = plot_ml_dataset_fair_vs_realized_for_pair(
+            ml_df,
+            a1,
+            a2,
+            ncols=ncols,
+            figsize=figsize,
+            title=f"{a1} — {a2}",
+        )
+        figures.append(fig)
+    return figures
 
 
 def sharpe_ratio_from_level_series(
