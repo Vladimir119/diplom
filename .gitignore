@@ -7,3 +7,10 @@
 *.png
 *.jpg
 *.jepg
+
+__pycache__
+*__pycache__*
+
+*.log
+*.code 
+*.venv
