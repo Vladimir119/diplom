@@ -9,7 +9,8 @@ The names in the user request map directly to the functions defined below.
 
 import os
 import math
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -2687,3 +2688,1026 @@ def martin_ratio_curve(prices, max_horizon=None, periods_per_year=252, risk_free
         results.append(mr)
         idx.append(h)
     return _pd.Series(results, index=idx)
+
+
+# =============================================================================
+# Датасеты для обучения: портфель (задача 1) + корр. свопы (задачи 2–4)
+# =============================================================================
+
+
+def _bday_count_inclusive(start: pd.Timestamp, end: pd.Timestamp) -> int:
+    """Число торговых дней на [start, end] (оба конца включительно)."""
+    s, e = pd.Timestamp(start).normalize(), pd.Timestamp(end).normalize()
+    if e < s:
+        return 0
+    return int(len(pd.bdate_range(s, e)))
+
+
+def _years_elapsed_bdays(report_date: pd.Timestamp, date: pd.Timestamp) -> float:
+    """Доля года по 252 б.д. между report_date inclusive и date (на report_date — 0)."""
+    r, d = pd.Timestamp(report_date).normalize(), pd.Timestamp(date).normalize()
+    if d <= r:
+        return 0.0
+    n = _bday_count_inclusive(r + BDay(1), d)
+    return float(n) / 252.0
+
+
+def _tenor_years_to_expiry(report_date: pd.Timestamp, expiry_date: pd.Timestamp) -> float:
+    """Срок до экспирации в годах (252 б.д.) от report_date до expiry_date."""
+    r, e = pd.Timestamp(report_date).normalize(), pd.Timestamp(expiry_date).normalize()
+    if e <= r:
+        return 0.0
+    n = _bday_count_inclusive(r + BDay(1), e)
+    return float(n) / 252.0
+
+
+def price_data_subset(
+    price_data: Dict[str, pd.DataFrame],
+    assets: Sequence[str],
+) -> Dict[str, pd.DataFrame]:
+    """Подмножество ``price_data`` ровно по ``assets`` (порядок сохранён)."""
+    missing = [a for a in assets if a not in price_data or price_data[a] is None]
+    if missing:
+        raise KeyError(f"Нет рядов цен для активов: {missing}")
+    return {str(a): price_data[a] for a in assets}
+
+
+def swap_expiry_dates_from_T_array(
+    date: Union[str, pd.Timestamp],
+    T_array: Sequence[float],
+    *,
+    basis: str = "calendar",
+) -> List[pd.Timestamp]:
+    """Построить список дат экспирации свопов из ``date`` и срочностей в годах.
+
+    Parameters
+    ----------
+    date : дата заключения (отчётная дата стратегии).
+    T_array : массив срочностей в годах (напр. ``[0.25, 0.5, 1.0, 2.0]``).
+    basis : ``"calendar"`` (по умолчанию) — прибавлять ``T*365.25`` календарных
+        дней; ``"trading"`` — прибавлять ``T*252`` бизнес-дней
+        (``pandas.tseries.offsets.BDay``).
+
+    Returns
+    -------
+    list[pd.Timestamp] — нормализованные даты экспирации, сонаправленные с ``T_array``.
+    """
+    if basis not in ("calendar", "trading"):
+        raise ValueError("basis must be 'calendar' or 'trading'")
+    rd = pd.Timestamp(date).normalize()
+    out: List[pd.Timestamp] = []
+    for T in T_array:
+        Tf = float(T)
+        if not math.isfinite(Tf) or Tf <= 0:
+            raise ValueError(f"T must be positive finite, got {T!r}")
+        if basis == "calendar":
+            exp = rd + pd.Timedelta(days=int(round(Tf * 365.25)))
+        else:
+            exp = pd.Timestamp(rd + BDay(int(round(Tf * 252.0))))
+        out.append(pd.Timestamp(exp).normalize())
+    return out
+
+
+def _wfv_lookback_start(ref: pd.Timestamp, w_fair_value_years: float) -> pd.Timestamp:
+    """Нижняя граница окна истории ρ: ``w_fair_value_years × 252`` бизнес-дней назад от ``ref``."""
+    ref = pd.Timestamp(ref).normalize()
+    n_bd = max(1, int(round(float(w_fair_value_years) * 252.0)))
+    return ref - BDay(n_bd)
+
+
+def _assert_assets_trade_on_date(
+    price_data: Dict[str, pd.DataFrame],
+    assets: Sequence[str],
+    as_of: pd.Timestamp,
+) -> None:
+    """Проверить, что на отчётную дату по каждому активу есть Close."""
+    t0 = pd.Timestamp(as_of).normalize()
+    for name in assets:
+        if name not in price_data or price_data[name] is None or price_data[name].empty:
+            raise ValueError(f"Нет данных по активу {name!r}")
+        close = close_series_from_ohlc(price_data[name]).sort_index()
+        avail = close.index[close.index <= t0]
+        if len(avail) == 0:
+            raise ValueError(f"Актив {name!r} ещё не торгуется на дату {t0.date()}")
+        if pd.isna(close.loc[avail[-1]]):
+            raise ValueError(f"Нет цены Close у {name!r} на или до {t0.date()}")
+
+
+def build_strategy_portfolio_levels_dataset(
+    price_data: Dict[str, pd.DataFrame],
+    report_dates: Sequence[Union[str, pd.Timestamp]],
+    assets: Sequence[str],
+    weights: Dict[str, float],
+    r_daily: Union[Sequence[float], np.ndarray, pd.Series],
+    *,
+    T_years: float = 1.0,
+    weight_risk_free: float = 0.0,
+    normalize_weights: bool = True,
+) -> pd.DataFrame:
+    """Ежедневная динамика взвешенного «индекса» и компонент (задача 1).
+
+    На первой дате (``report_date``) нормировка: если веса нормированы к 1,
+    ``portfolio`` = 1.
+
+    Колонки: ``report_date``, ``asset`` — имя актива, ``index`` (только рисковые
+    доли), ``risk_free``, ``portfolio``; ``date``; ``value``.
+    """
+    if T_years <= 0:
+        raise ValueError("T_years must be positive")
+    records: List[dict] = []
+    w_rf = float(weight_risk_free)
+    w_asset = {a: float(weights[a]) for a in assets}
+    if normalize_weights:
+        s = sum(w_asset.values()) + w_rf
+        if s <= 0:
+            raise ValueError("Сумма весов должна быть положительной")
+        w_asset = {k: v / s for k, v in w_asset.items()}
+        w_rf = w_rf / s
+
+    r_arr = np.asarray(r_daily, dtype=float).ravel()
+
+    for rd in report_dates:
+        t0 = pd.Timestamp(rd).normalize()
+        _assert_assets_trade_on_date(price_data, assets, t0)
+
+        n_bd_horizon = max(1, int(round(float(T_years) * 252.0)))
+        end_anchor = t0 + BDay(n_bd_horizon)
+
+        closes: Dict[str, pd.Series] = {}
+        p0: Dict[str, float] = {}
+        for a in assets:
+            c = close_series_from_ohlc(price_data[a]).sort_index()
+            closes[a] = c
+            p0[a] = float(c.loc[:t0].iloc[-1])
+
+        sched = pd.bdate_range(t0, end_anchor)
+        if len(sched) < 2:
+            raise ValueError("Слишком короткое окно стратегии (меньше 2 б.д.)")
+        n_steps = len(sched) - 1
+        if r_arr.shape[0] < n_steps:
+            raise ValueError(
+                f"r_daily: нужно ≥ {n_steps} значений для окна от {t0.date()}, "
+                f"передано {r_arr.shape[0]}"
+            )
+        r_step = r_arr[:n_steps]
+
+        b_acc = np.empty(len(sched), dtype=float)
+        b_acc[0] = 1.0
+        for k in range(1, len(sched)):
+            b_acc[k] = b_acc[k - 1] * (1.0 + float(r_step[k - 1]))
+
+        for k, dt in enumerate(sched):
+            dt = pd.Timestamp(dt).normalize()
+            idx_level = 0.0
+            for a in assets:
+                px_s = closes[a].loc[:dt]
+                if px_s.empty or pd.isna(px_s.iloc[-1]):
+                    raise ValueError(f"Нет цены {a!r} на {dt.date()}")
+                pt = float(px_s.iloc[-1])
+                leg = w_asset[a] * (pt / p0[a])
+                idx_level += leg
+                records.append(
+                    {
+                        "report_date": t0,
+                        "asset": a,
+                        "date": dt,
+                        "value": float(leg),
+                    }
+                )
+            rf_level = w_rf * float(b_acc[k])
+            records.append(
+                {"report_date": t0, "asset": "risk_free", "date": dt, "value": float(rf_level)}
+            )
+            records.append(
+                {
+                    "report_date": t0,
+                    "asset": "index",
+                    "date": dt,
+                    "value": float(idx_level),
+                }
+            )
+            records.append(
+                {
+                    "report_date": t0,
+                    "asset": "portfolio",
+                    "date": dt,
+                    "value": float(idx_level + rf_level),
+                }
+            )
+
+    out = pd.DataFrame(records)
+    if out.empty:
+        return out
+    return out.sort_values(["report_date", "date", "asset"]).reset_index(drop=True)
+
+
+def agent2_rolling_correlation_artifacts(
+    price_data: Dict[str, pd.DataFrame],
+    *,
+    assets: Optional[Sequence[str]] = None,
+    w_corr: int = 21,
+    verbose: bool = True,
+) -> Dict[str, Any]:
+    """Агент 2: лог-доходности и скользящие корреляции (окно ``w_corr``).
+
+    Если задан ``assets``, используются только эти ключи из ``price_data`` (та же унивёрсум, что у портфеля).
+    """
+    if assets is not None:
+        price_data = price_data_subset(price_data, assets)
+    log_returns, rolling_by_pair = compute_log_returns_and_pairwise_rolling_correlations(
+        price_data, corr_window=int(w_corr)
+    )
+    corr_matrices = rolling_correlation_matrices(log_returns, window=int(w_corr))
+    if verbose:
+        print(
+            f"[Agent 2] corr_window={w_corr}: матриц по датам {len(corr_matrices)}, пар {len(rolling_by_pair)}"
+        )
+    assets = list(log_returns.keys())
+    return {
+        "log_returns": log_returns,
+        "corr_matrices": corr_matrices,
+        "rolling_by_pair": rolling_by_pair,
+        "assets": assets,
+    }
+
+
+def _resolve_swap_nominals(
+    pairs: Sequence[Tuple[str, str]],
+    swap_expiry_dates: Sequence[pd.Timestamp],
+    nominals: Optional[Sequence[float]],
+) -> np.ndarray:
+    """Массив номиналов длины len(pairs)*len(expiries) (сначала по парам, затем по срокам)."""
+    n_p, n_e = len(pairs), len(swap_expiry_dates)
+    if nominals is None:
+        return np.ones(n_p * n_e, dtype=float)
+    arr = np.asarray(nominals, dtype=float).ravel()
+    if arr.shape[0] == n_e:
+        return np.tile(arr, n_p)
+    if arr.shape[0] == n_p * n_e:
+        return arr
+    raise ValueError(
+        f"nominals: ожидается длина {n_e} (на срок) или {n_p * n_e} (пара×срок), получено {arr.shape[0]}"
+    )
+
+
+def agent3_correlation_swap_inception_values(
+    price_data: Dict[str, pd.DataFrame],
+    report_dates: Sequence[Union[str, pd.Timestamp]],
+    swap_expiry_dates: Sequence[Union[str, pd.Timestamp]],
+    agent2: Dict[str, Any],
+    *,
+    nominals: Optional[Sequence[float]] = None,
+    w_fair_value: float = 1.0,
+    delta_t: float = 1 / 252,
+    ar_p: int = 1,
+    min_rho_points: int = 60,
+) -> pd.DataFrame:
+    """Агент 3: оценка на дату заключения — ``report_date``, ``asset1``, ``asset2``, ``T``, ``value``."""
+    rolling_by_pair: Dict[Tuple[str, str], pd.Series] = agent2["rolling_by_pair"]
+    expiries = [pd.Timestamp(x).normalize() for x in swap_expiry_dates]
+    pairs = sorted(rolling_by_pair.keys())
+    nom_flat = _resolve_swap_nominals(pairs, expiries, nominals)
+
+    records: List[dict] = []
+    for rd in report_dates:
+        t0 = pd.Timestamp(rd).normalize()
+        lb = _wfv_lookback_start(t0, float(w_fair_value))
+        flat_i = 0
+        for (a1, a2) in pairs:
+            rho_full = rolling_by_pair[(a1, a2)].sort_index()
+            rho_win = rho_full.loc[(rho_full.index >= lb) & (rho_full.index <= t0)].dropna()
+            short = rho_win.shape[0] < max(min_rho_points, ar_p + 1)
+            for _, exp in enumerate(expiries):
+                nm = float(nom_flat[flat_i])
+                flat_i += 1
+                if short:
+                    continue
+                T = _tenor_years_to_expiry(t0, exp)
+                if T <= 0:
+                    continue
+                try:
+                    fs = fair_strike_from_rho_series(
+                        rho_win, delta_t=delta_t, T=float(T), ar_p=ar_p
+                    )
+                    v = float(fs["K_fair"])
+                except (ValueError, np.linalg.LinAlgError):
+                    v = float("nan")
+                records.append(
+                    {
+                        "report_date": t0,
+                        "asset1": a1,
+                        "asset2": a2,
+                        "T": float(T),
+                        "value": float(v * nm) if math.isfinite(v) else float("nan"),
+                    }
+                )
+
+    return pd.DataFrame(records)
+
+
+def agent4_correlation_swap_fair_value_paths(
+    price_data: Dict[str, pd.DataFrame],
+    report_dates: Sequence[Union[str, pd.Timestamp]],
+    swap_expiry_dates: Sequence[Union[str, pd.Timestamp]],
+    inception_df: pd.DataFrame,
+    agent2: Dict[str, Any],
+    *,
+    nominals: Optional[Sequence[float]] = None,
+    w_fair_value: float = 1.0,
+    delta_t: float = 1 / 252,
+    ar_p: int = 1,
+    min_rho_points: int = 60,
+    min_obs_realized: int = 5,
+    monthly_progress: bool = True,
+) -> pd.DataFrame:
+    """Агент 4: подневная «справедливая» оценка свопов до экспирации.
+
+    В каждый торговый день ``date`` ∈ [report_date, expiry]:
+
+    * ρ₀ — реализованная корреляция на отрезке [report_date, date] (по лог-доходностям);
+    * AR(p) калибруется по скользящему ρ за окно ``w_fair_value`` торговых лет
+      назад от ``date``;
+    * ``K_fair_residual`` = :func:`fair_strike_from_mean_reversion` с оставшимся
+      сроком ``T_cur`` — это E_t[ρ_avg за [t, T]].
+
+    **Декомпозиция корр. свопа.** Корр. своп [0, T] со страйком K эквивалентен
+    сумме (a) корр. свопа [0, t] с нотионалом ``N·t/T`` и (b) форвардного корр.
+    свопа [t, T] с нотионалом ``N·(T−t)/T``, оба со страйком K. Payoff'ы до и
+    после декомпозиции совпадают. Отсюда переоценка на момент t:
+
+        E_t[ρ_avg_[0,T]] = (t/T)·ρ_real_[0,t] + ((T−t)/T)·E_t[ρ_avg_[t,T]]
+
+    Поэтому в ``value`` мы складываем уже реализовавшуюся часть и форвардную:
+    ``value = ((elapsed/T_start)·ρ₀ + (T_cur/T_start)·K_fair_residual) × nominal``.
+    Колонка ``value_residual`` хранит «голую» форвардную компоненту
+    (``K_fair_residual × nominal``) — для отладки/визуализации.
+
+    При ``T_cur <= 0`` пишется одна строка с ``is_expired=True`` (``value``
+    «цементируется» последним валидным значением — на момент экспирации это
+    ≈ ρ_realized_[0,T] × N), далее этот контракт не пересчитываем.
+
+    Колонки результата: ``report_date, asset1, asset2, expiry_date, T_start,
+    T_cur, date, value_start, value, value_residual, rho_realized_0t,
+    K_fair_residual, is_expired, nominal``.
+
+    При ``monthly_progress`` печать раз в календарный месяц по каждой паре и сроку.
+    """
+    rolling_by_pair: Dict[Tuple[str, str], pd.Series] = agent2["rolling_by_pair"]
+    expiries = [pd.Timestamp(x).normalize() for x in swap_expiry_dates]
+    pairs_ordered = sorted(rolling_by_pair.keys())
+    nom_flat = _resolve_swap_nominals(pairs_ordered, expiries, nominals)
+
+    close_px: Dict[str, pd.Series] = {}
+    for name, df in price_data.items():
+        if df is not None and not df.empty and "Close" in df.columns:
+            close_px[name] = close_series_from_ohlc(df).sort_index()
+
+    start_lookup: Dict[Tuple[pd.Timestamp, str, str, float], float] = {}
+    if inception_df is not None and not inception_df.empty:
+        for _, row in inception_df.iterrows():
+            key = (
+                pd.Timestamp(row["report_date"]).normalize(),
+                str(row["asset1"]),
+                str(row["asset2"]),
+                round(float(row["T"]), 10),
+            )
+            start_lookup[key] = float(row["value"])
+
+    records: List[dict] = []
+
+    for rd in report_dates:
+        t0 = pd.Timestamp(rd).normalize()
+        nm_by_pair_exp: Dict[Tuple[str, str, pd.Timestamp], float] = {}
+
+        flat_i = 0
+        for (a1, a2) in pairs_ordered:
+            for exp in expiries:
+                nm_by_pair_exp[(a1, a2, pd.Timestamp(exp).normalize())] = float(nom_flat[flat_i])
+                flat_i += 1
+
+        for (a1, a2) in pairs_ordered:
+            if a1 not in close_px or a2 not in close_px:
+                continue
+
+            rho_series = rolling_by_pair[(a1, a2)].sort_index()
+
+            for exp in expiries:
+                exp_n = pd.Timestamp(exp).normalize()
+                T_start = _tenor_years_to_expiry(t0, exp_n)
+                if T_start <= 0:
+                    continue
+
+                nm = nm_by_pair_exp.get((a1, a2, exp_n), 1.0)
+                key_start = (t0, a1, a2, round(float(T_start), 10))
+                v_start = start_lookup.get(key_start, float("nan"))
+
+                expired = False
+                last_month_key: Optional[Tuple[int, int]] = None
+                last_val_nom: float = float("nan")
+
+                sched = pd.bdate_range(t0, exp_n)
+                for dt in sched:
+                    dt = pd.Timestamp(dt).normalize()
+                    if expired:
+                        break
+
+                    T_cur = T_start - _years_elapsed_bdays(t0, dt)
+                    if T_cur <= 0:
+                        # На дату экспирации фиксируем последнюю валидную теор.
+                        # стоимость свопа: контракт «цементируется» и далее не
+                        # переоценивается. Это используется визуализацией для
+                        # стабильного p&l после экспирации.
+                        cement_val = (
+                            float(last_val_nom) if math.isfinite(last_val_nom) else float("nan")
+                        )
+                        records.append(
+                            {
+                                "report_date": t0,
+                                "asset1": a1,
+                                "asset2": a2,
+                                "expiry_date": exp_n,
+                                "T_start": float(T_start),
+                                "T_cur": float(T_cur),
+                                "date": dt,
+                                "value_start": v_start,
+                                "value": cement_val,
+                                "value_residual": float("nan"),
+                                "rho_realized_0t": float("nan"),
+                                "K_fair_residual": float("nan"),
+                                "is_expired": True,
+                                "nominal": float(nm),
+                            }
+                        )
+                        expired = True
+                        if monthly_progress:
+                            print(
+                                f"[Agent 4] {t0.date()} | пара {a1}/{a2} | exp={exp_n.date()} | "
+                                f"T_start={T_start:.4g} лет | месяц: экспирация {dt.date()} "
+                                f"(контракт закрыт, цементируем value={cement_val:g})"
+                            )
+                        break
+
+                    rho_0 = realized_correlation_log_returns(
+                        close_px[a1],
+                        close_px[a2],
+                        t0,
+                        dt,
+                        min_obs=min_obs_realized,
+                    )
+                    lb_d = _wfv_lookback_start(dt, float(w_fair_value))
+                    rho_win = rho_series.loc[(rho_series.index >= lb_d) & (rho_series.index <= dt)].dropna()
+                    val_residual = float("nan")
+                    if rho_win.shape[0] >= max(min_rho_points, ar_p + 1) and math.isfinite(rho_0):
+                        try:
+                            par = _ar_params_from_rho_clean(rho_win, delta_t, ar_p)
+                            val_residual = fair_strike_from_mean_reversion(
+                                par["rho_bar"], par["kappa"], float(rho_0), float(T_cur)
+                            )
+                        except (ValueError, np.linalg.LinAlgError):
+                            val_residual = float("nan")
+
+                    # Декомпозиция: корр. своп [0, T] со страйком K эквивалентен
+                    # сумме корр. свопа [0, t] (нотионал N·t/T) и форвардного
+                    # корр. свопа [t, T] (нотионал N·(T−t)/T) с тем же K.
+                    # Поэтому ожидаемая средняя корреляция за всё [0, T] на момент t:
+                    #   E_t[ρ_avg_[0,T]] = (t/T)·ρ_real_[0,t] + ((T−t)/T)·E_t[ρ_avg_[t,T]]
+                    # где ρ_real_[0,t] = rho_0, E_t[ρ_avg_[t,T]] = val_residual
+                    # (fair strike с горизонтом T_cur). Без слагаемого реализации
+                    # переоценка не равна payoff'у исходного свопа.
+                    elapsed = max(0.0, float(T_start) - float(T_cur))
+                    if (
+                        T_start > 0
+                        and math.isfinite(rho_0)
+                        and math.isfinite(val_residual)
+                    ):
+                        w_real = elapsed / float(T_start)
+                        w_fwd = float(T_cur) / float(T_start)
+                        val = w_real * float(rho_0) + w_fwd * float(val_residual)
+                    else:
+                        val = val_residual
+
+                    val_nom = float(val * nm) if math.isfinite(val) else float("nan")
+                    if math.isfinite(val_nom):
+                        last_val_nom = val_nom
+
+                    records.append(
+                        {
+                            "report_date": t0,
+                            "asset1": a1,
+                            "asset2": a2,
+                            "expiry_date": exp_n,
+                            "T_start": float(T_start),
+                            "T_cur": float(T_cur),
+                            "date": dt,
+                            "value_start": v_start,
+                            "value": float(val_nom),
+                            "value_residual": (
+                                float(val_residual * nm)
+                                if math.isfinite(val_residual)
+                                else float("nan")
+                            ),
+                            "rho_realized_0t": float(rho_0) if math.isfinite(rho_0) else float("nan"),
+                            "K_fair_residual": float(val_residual) if math.isfinite(val_residual) else float("nan"),
+                            "is_expired": False,
+                            "nominal": float(nm),
+                        }
+                    )
+
+                    if monthly_progress:
+                        mk = (dt.year, dt.month)
+                        if mk != last_month_key:
+                            last_month_key = mk
+                            rho0_str = (
+                                f"{rho_0:.4g}" if math.isfinite(rho_0) else "n/a"
+                            )
+                            kres_str = (
+                                f"{val_residual:.4g}"
+                                if math.isfinite(val_residual)
+                                else "n/a"
+                            )
+                            print(
+                                f"[Agent 4] {t0.date()} → {dt.year}-{dt.month:02d} | пара {a1}/{a2} | "
+                                f"exp={exp_n.date()} | T_start={T_start:.4g} | T_cur={T_cur:.4g} | "
+                                f"ρ_real_[0,t]={rho0_str} | K_fair_res={kres_str} | "
+                                f"fv×N={val_nom:g}"
+                            )
+
+    out = pd.DataFrame(records)
+    if out.empty:
+        return out
+    return out.sort_values(
+        ["report_date", "asset1", "asset2", "expiry_date", "T_start", "date"]
+    ).reset_index(drop=True)
+
+
+def build_correlation_swap_training_branch(
+    price_data: Dict[str, pd.DataFrame],
+    report_dates: Sequence[Union[str, pd.Timestamp]],
+    swap_expiry_dates: Sequence[Union[str, pd.Timestamp]],
+    *,
+    assets: Optional[Sequence[str]] = None,
+    w_corr: int = 21,
+    w_fair_value: float = 1.0,
+    nominals: Optional[Sequence[float]] = None,
+    run_agent4: bool = True,
+    agent4_kwargs: Optional[Dict[str, Any]] = None,
+    verbose_agent2: bool = True,
+) -> Dict[str, Any]:
+    """Агенты 2 → 3 → 4 последовательно (ветка хеджа корр. свопами).
+
+    При ``assets is not None`` используются только эти тикеры (как у портфеля).
+    """
+    px = price_data_subset(price_data, assets) if assets is not None else price_data
+    ag2 = agent2_rolling_correlation_artifacts(px, w_corr=w_corr, verbose=verbose_agent2)
+    inc = agent3_correlation_swap_inception_values(
+        px,
+        report_dates,
+        swap_expiry_dates,
+        ag2,
+        nominals=nominals,
+        w_fair_value=w_fair_value,
+    )
+    out: Dict[str, Any] = {
+        "agent2": ag2,
+        "swap_inception": inc,
+        "swap_paths": pd.DataFrame(),
+    }
+    if run_agent4:
+        kw: Dict[str, Any] = dict(monthly_progress=True, nominals=nominals)
+        if agent4_kwargs:
+            kw.update(agent4_kwargs)
+        out["swap_paths"] = agent4_correlation_swap_fair_value_paths(
+            px,
+            report_dates,
+            swap_expiry_dates,
+            inc,
+            ag2,
+            w_fair_value=w_fair_value,
+            **kw,
+        )
+    return out
+
+
+def build_ml_training_datasets_parallel(
+    price_data: Dict[str, pd.DataFrame],
+    report_dates: Sequence[Union[str, pd.Timestamp]],
+    assets: Sequence[str],
+    weights: Dict[str, float],
+    r_daily: Union[Sequence[float], np.ndarray, pd.Series],
+    swap_expiry_dates: Sequence[Union[str, pd.Timestamp]],
+    *,
+    T_years: float = 1.0,
+    weight_risk_free: float = 0.0,
+    w_corr: int = 21,
+    w_fair_value: float = 1.0,
+    nominals: Optional[Sequence[float]] = None,
+    run_portfolio: bool = True,
+    run_swaps: bool = True,
+    run_agent4: bool = True,
+    max_workers: int = 2,
+) -> Dict[str, Any]:
+    """Параллельно: портфель (задача 1) и ветка корр. свопов (задачи 2–4).
+
+    ``report_dates`` — список дат начала стратегии. Цены ограничиваются ``assets``.
+    Отдельно можно включать только одну из веток через ``run_portfolio`` / ``run_swaps``.
+    """
+    rds = list(report_dates)
+    px_assets = price_data_subset(price_data, assets)
+    out: Dict[str, Any] = {
+        "portfolio": pd.DataFrame(),
+        "correlation_branch": {},
+    }
+
+    def _job_portfolio():
+        if not run_portfolio:
+            return pd.DataFrame()
+        return build_strategy_portfolio_levels_dataset(
+            px_assets,
+            rds,
+            assets,
+            weights,
+            r_daily,
+            T_years=T_years,
+            weight_risk_free=weight_risk_free,
+        )
+
+    def _job_swaps():
+        if not run_swaps:
+            return {}
+        return build_correlation_swap_training_branch(
+            px_assets,
+            rds,
+            swap_expiry_dates,
+            assets=assets,
+            w_corr=w_corr,
+            w_fair_value=w_fair_value,
+            nominals=nominals,
+            run_agent4=run_agent4,
+        )
+
+    workers = max(1, min(int(max_workers), 2)) if (run_portfolio and run_swaps) else 1
+    if run_portfolio and run_swaps:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            fp = ex.submit(_job_portfolio)
+            fs = ex.submit(_job_swaps)
+            out["portfolio"] = fp.result()
+            out["correlation_branch"] = fs.result()
+    else:
+        out["portfolio"] = _job_portfolio()
+        out["correlation_branch"] = _job_swaps()
+
+    return out
+
+
+def build_ml_training_dataset(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    """Сборка датасетов для ML: то же, что :func:`build_ml_training_datasets_parallel`."""
+    return build_ml_training_datasets_parallel(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Интерактивный дашборд p&l портфеля + корр. свопов
+# ---------------------------------------------------------------------------
+
+def _compute_pnl_dashboard_arrays(
+    price_data: Dict[str, pd.DataFrame],
+    swap_paths: pd.DataFrame,
+    *,
+    report_date: Union[str, pd.Timestamp],
+    assets: Sequence[str],
+    r_daily: Union[Sequence[float], np.ndarray, pd.Series],
+    T_years: float,
+    extend_to_max_expiry: bool,
+) -> Dict[str, Any]:
+    """Подготовить «сырые» массивы под дашборд (мастер-ось, ratios, rf_factor, swap-юниты)."""
+    rd = pd.Timestamp(report_date).normalize()
+
+    n_bd_strat = max(1, int(round(float(T_years) * 252.0)))
+    end_strat = rd + BDay(n_bd_strat)
+
+    expiries: List[pd.Timestamp] = []
+    if (
+        swap_paths is not None
+        and not swap_paths.empty
+        and "expiry_date" in swap_paths.columns
+    ):
+        sp_rd = swap_paths[swap_paths["report_date"] == rd]
+        if not sp_rd.empty:
+            expiries = [pd.Timestamp(x).normalize() for x in sp_rd["expiry_date"].unique()]
+
+    end_master = (
+        max(end_strat, max(expiries))
+        if (extend_to_max_expiry and expiries)
+        else end_strat
+    )
+    sched = pd.bdate_range(rd, end_master)
+    n = len(sched)
+
+    ratios: Dict[str, np.ndarray] = {}
+    for a in assets:
+        if a not in price_data or price_data[a] is None:
+            raise KeyError(f"Нет данных для актива {a!r}")
+        s = close_series_from_ohlc(price_data[a]).sort_index()
+        before = s.loc[:rd]
+        if before.empty:
+            raise ValueError(f"Актив {a!r} ещё не торгуется на {rd.date()}")
+        p0 = float(before.iloc[-1])
+        s_re = s.reindex(sched).ffill()
+        s_re = s_re.fillna(p0)
+        ratios[a] = (s_re.values / p0).astype(float)
+
+    r_arr = np.asarray(r_daily, dtype=float).ravel()
+    if r_arr.shape[0] < n - 1:
+        pad_len = n - 1 - r_arr.shape[0]
+        last = float(r_arr[-1]) if r_arr.size else 0.0
+        r_arr = np.concatenate([r_arr, np.full(pad_len, last, dtype=float)])
+    rf_factor = np.empty(n, dtype=float)
+    rf_factor[0] = 1.0
+    for k in range(1, n):
+        rf_factor[k] = rf_factor[k - 1] * (1.0 + float(r_arr[k - 1]))
+
+    swap_keys: List[Tuple[str, str, float, pd.Timestamp]] = []
+    pnl_unit: Dict[Tuple[str, str, float, pd.Timestamp], np.ndarray] = {}
+    if swap_paths is not None and not swap_paths.empty:
+        sp_rd = swap_paths[swap_paths["report_date"] == rd].copy()
+        if not sp_rd.empty:
+            grp = sp_rd.groupby(
+                ["asset1", "asset2", "T_start", "expiry_date"], dropna=False
+            )
+            for (a1, a2, T_start, exp_date), g in grp:
+                key = (
+                    str(a1),
+                    str(a2),
+                    float(T_start),
+                    pd.Timestamp(exp_date).normalize(),
+                )
+                ser = g.set_index("date")["value"].sort_index()
+                v_start_arr = g["value_start"].dropna()
+                v_start = (
+                    float(v_start_arr.iloc[0]) if not v_start_arr.empty else float("nan")
+                )
+                ser_re = ser.reindex(sched).ffill()
+                ser_re = ser_re.fillna(v_start if math.isfinite(v_start) else 0.0)
+                if not math.isfinite(v_start):
+                    pnl_arr = np.zeros(n, dtype=float)
+                else:
+                    pnl_arr = ser_re.values - v_start
+                pnl_arr = np.where(np.isfinite(pnl_arr), pnl_arr, 0.0).astype(float)
+                swap_keys.append(key)
+                pnl_unit[key] = pnl_arr
+
+    return {
+        "report_date": rd,
+        "sched": sched,
+        "n": n,
+        "ratios": ratios,
+        "rf_factor": rf_factor,
+        "swap_keys": swap_keys,
+        "pnl_unit": pnl_unit,
+    }
+
+
+def make_pnl_dashboard_widget(
+    price_data: Dict[str, pd.DataFrame],
+    swap_paths: pd.DataFrame,
+    *,
+    report_date: Union[str, pd.Timestamp],
+    assets: Sequence[str],
+    initial_weights: Dict[str, float],
+    weight_risk_free: float = 0.0,
+    r_daily: Union[Sequence[float], np.ndarray, pd.Series],
+    T_years: float = 1.0,
+    initial_cash: float = 1.0,
+    extend_to_max_expiry: bool = True,
+) -> Any:
+    """Интерактивный дашборд p&l портфеля + корр. свопов.
+
+    Линии:
+      * **p&l index**     — Σ wᵢ · cash · (Pᵢ(t)/Pᵢ(t₀)) − idx(t₀);
+      * **p&l portfolio** — index + risk-free leg − portfolio(t₀);
+      * **p&l swaps**     — Σ Nₖ · (value_swap_k(t) − value_start_k);
+        после экспирации каждого свопа его вклад фиксируется (Agent 4 цементирует value);
+      * **p&l total**     — p&l portfolio + p&l swaps;
+      * **investment**    — горизонталь на уровне portfolio(t₀) (объём вложений);
+      * **p&l global**    — p&l total − investment (параллельный сдвиг вниз).
+
+    Контролы (`ipywidgets`):
+      * слайдеры весов активов и веса безрисковой ноги;
+      * поле для ``initial_cash``;
+      * чекбоксы и поля номиналов по каждому свопу;
+      * чекбоксы видимости каждой линии.
+
+    Returns
+    -------
+    ``ipywidgets.VBox`` (внутри ``plotly.graph_objects.FigureWidget`` + контролы).
+    В Jupyter notebook отображается, если возвращён последним выражением ячейки.
+    Требует ``plotly`` и ``ipywidgets``.
+    """
+    try:
+        import plotly.graph_objects as go
+        import ipywidgets as widgets
+    except ImportError as exc:
+        raise ImportError(
+            "make_pnl_dashboard_widget требует plotly и ipywidgets: "
+            "pip install plotly ipywidgets"
+        ) from exc
+
+    arr = _compute_pnl_dashboard_arrays(
+        price_data,
+        swap_paths,
+        report_date=report_date,
+        assets=assets,
+        r_daily=r_daily,
+        T_years=T_years,
+        extend_to_max_expiry=extend_to_max_expiry,
+    )
+    rd = arr["report_date"]
+    sched = pd.DatetimeIndex(pd.to_datetime(arr["sched"]))
+    n = arr["n"]
+    # FigureWidget сериализует numpy datetime64 в int64 (нс) → на оси огромные целые.
+    # ISO-строки стабильно дают ось типа date в браузере.
+    x_plot = sched.strftime("%Y-%m-%d").tolist()
+    ratios = arr["ratios"]
+    rf_factor = arr["rf_factor"]
+    swap_keys = arr["swap_keys"]
+    pnl_unit = arr["pnl_unit"]
+
+    def compute(weights_d, w_rf, cash, nominals_d, included_set):
+        idx_lvl = np.zeros(n, dtype=float)
+        for a in assets:
+            idx_lvl = idx_lvl + float(weights_d.get(a, 0.0)) * cash * ratios[a]
+        rf_lvl = float(w_rf) * cash * rf_factor
+        port_lvl = idx_lvl + rf_lvl
+
+        idx_t0 = float(idx_lvl[0])
+        port_t0 = float(port_lvl[0])
+
+        pnl_idx = idx_lvl - idx_t0
+        pnl_port = port_lvl - port_t0
+
+        pnl_sw = np.zeros(n, dtype=float)
+        for k in swap_keys:
+            if k in included_set:
+                pnl_sw = pnl_sw + float(nominals_d.get(k, 1.0)) * pnl_unit[k]
+
+        pnl_tot = pnl_port + pnl_sw
+        pnl_glb = pnl_tot - port_t0
+        return pnl_idx, pnl_port, pnl_sw, pnl_tot, pnl_glb, port_t0
+
+    weights_d_init = {a: float(initial_weights.get(a, 0.0)) for a in assets}
+    nominals_d_init = {k: 1.0 for k in swap_keys}
+    included_init = set(swap_keys)
+
+    pnl_idx, pnl_port, pnl_sw, pnl_tot, pnl_glb, port_t0 = compute(
+        weights_d_init,
+        float(weight_risk_free),
+        float(initial_cash),
+        nominals_d_init,
+        included_init,
+    )
+
+    fig = go.FigureWidget()
+    line_specs: List[Tuple[str, np.ndarray, str, Optional[str], float]] = [
+        ("p&l index",     pnl_idx,                  "#7fb3ff", None,    1.5),
+        ("p&l portfolio", pnl_port,                  "#1f77b4", None,    2.0),
+        ("p&l swaps",     pnl_sw,                    "#ff7f0e", None,    2.0),
+        ("p&l total",     pnl_tot,                   "#2ca02c", None,    2.5),
+        ("investment",    np.full(n, port_t0),       "#777777", "dash",  1.5),
+        ("p&l global",    pnl_glb,                   "#9467bd", None,    2.5),
+    ]
+    for name, y, color, dash, width in line_specs:
+        fig.add_trace(
+            go.Scatter(
+                x=x_plot, y=y, name=name, mode="lines",
+                line=dict(color=color, width=width, dash=dash) if dash else dict(color=color, width=width),
+            )
+        )
+    fig.update_layout(
+        title=f"P&L dashboard | report_date = {rd.date()} | bd = {n}",
+        yaxis_title="$ value",
+        hovermode="x unified",
+        height=520,
+        margin=dict(l=60, r=20, t=60, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    fig.update_xaxes(
+        title="Date",
+        type="date",
+        tickformat="%Y-%m-%d",
+        hoverformat="%Y-%m-%d",
+    )
+
+    weight_widgets: Dict[str, "widgets.FloatSlider"] = {}
+    for a in assets:
+        weight_widgets[a] = widgets.FloatSlider(
+            value=weights_d_init[a],
+            min=0.0,
+            max=2.0,
+            step=0.05,
+            description=str(a),
+            continuous_update=False,
+            style={"description_width": "120px"},
+            layout=widgets.Layout(width="320px"),
+        )
+    rf_widget = widgets.FloatSlider(
+        value=float(weight_risk_free),
+        min=0.0,
+        max=2.0,
+        step=0.05,
+        description="weight_rf",
+        continuous_update=False,
+        style={"description_width": "120px"},
+        layout=widgets.Layout(width="320px"),
+    )
+    cash_widget = widgets.FloatText(
+        value=float(initial_cash),
+        description="initial cash",
+        style={"description_width": "120px"},
+        layout=widgets.Layout(width="320px"),
+    )
+
+    swap_check_widgets: Dict[Tuple[str, str, float, pd.Timestamp], "widgets.Checkbox"] = {}
+    swap_nom_widgets: Dict[Tuple[str, str, float, pd.Timestamp], "widgets.FloatText"] = {}
+    for k in swap_keys:
+        a1, a2, T_start, exp = k
+        label = f"{a1}/{a2} T={T_start:.2f}y exp={exp.date()}"
+        swap_check_widgets[k] = widgets.Checkbox(
+            value=True,
+            description=label,
+            indent=False,
+            layout=widgets.Layout(width="320px"),
+        )
+        swap_nom_widgets[k] = widgets.FloatText(
+            value=1.0,
+            description="N=",
+            step=0.5,
+            style={"description_width": "30px"},
+            layout=widgets.Layout(width="120px"),
+        )
+
+    line_check_widgets: Dict[str, "widgets.Checkbox"] = {}
+    for name, _, _, _, _ in line_specs:
+        line_check_widgets[name] = widgets.Checkbox(
+            value=True,
+            description=name,
+            indent=False,
+            layout=widgets.Layout(width="200px"),
+        )
+
+    def on_change(change=None):
+        wd = {a: float(weight_widgets[a].value) for a in assets}
+        w_rf_v = float(rf_widget.value)
+        cash_v = float(cash_widget.value)
+        nd = {k: float(swap_nom_widgets[k].value) for k in swap_keys}
+        inc = {k for k in swap_keys if swap_check_widgets[k].value}
+
+        pnl_idx2, pnl_port2, pnl_sw2, pnl_tot2, pnl_glb2, port_t0_2 = compute(
+            wd, w_rf_v, cash_v, nd, inc
+        )
+        ys = [
+            pnl_idx2,
+            pnl_port2,
+            pnl_sw2,
+            pnl_tot2,
+            np.full(n, port_t0_2),
+            pnl_glb2,
+        ]
+        with fig.batch_update():
+            for i, (name, _, _, _, _) in enumerate(line_specs):
+                fig.data[i].y = ys[i]
+                fig.data[i].visible = bool(line_check_widgets[name].value)
+
+    for w in weight_widgets.values():
+        w.observe(on_change, names="value")
+    rf_widget.observe(on_change, names="value")
+    cash_widget.observe(on_change, names="value")
+    for cb in swap_check_widgets.values():
+        cb.observe(on_change, names="value")
+    for nm in swap_nom_widgets.values():
+        nm.observe(on_change, names="value")
+    for cb in line_check_widgets.values():
+        cb.observe(on_change, names="value")
+
+    weights_box = widgets.VBox(
+        [
+            widgets.HTML("<b>Веса активов</b>"),
+            *weight_widgets.values(),
+            rf_widget,
+            cash_widget,
+        ]
+    )
+    swap_rows = (
+        [widgets.HBox([swap_check_widgets[k], swap_nom_widgets[k]]) for k in swap_keys]
+        or [widgets.HTML("<i>нет свопов на этот report_date</i>")]
+    )
+    swaps_box = widgets.VBox(
+        [widgets.HTML("<b>Свопы — вкл. / номинал</b>"), *swap_rows]
+    )
+    lines_box = widgets.VBox(
+        [widgets.HTML("<b>Видимые линии</b>"), *line_check_widgets.values()]
+    )
+
+    controls = widgets.HBox(
+        [weights_box, swaps_box, lines_box],
+        layout=widgets.Layout(align_items="flex-start"),
+    )
+    return widgets.VBox([fig, controls])

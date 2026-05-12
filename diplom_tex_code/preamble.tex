@@ -1,0 +1,173 @@
+% ============================================================
+%  Преамбула: пакеты, шрифты, геометрия, оформление
+%  Стандарт оформления КВР МФТИ ФПМИ:
+%    - Times New Roman 14 pt, интервал 1.5
+%    - Поля: левое 30 мм, правое 15 мм, верх/низ 20 мм
+%    - Абзацный отступ 1.25 см
+%    - Нумерация страниц снизу по центру
+%    - Заголовки глав с новой страницы
+% ============================================================
+
+% --- Языковая поддержка (XeLaTeX/LuaLaTeX) ---
+\usepackage{polyglossia}
+\setdefaultlanguage{russian}
+\setotherlanguage{english}
+
+% --- Шрифты ---
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\setmainfont{Times New Roman}
+\setsansfont{Arial}
+\setmonofont{Courier New}
+\newfontfamily\cyrillicfont{Times New Roman}
+\newfontfamily\cyrillicfontsf{Arial}
+\newfontfamily\cyrillicfonttt{Courier New}
+
+% --- Геометрия ---
+\usepackage[a4paper,
+            left=30mm, right=15mm,
+            top=20mm, bottom=20mm,
+            footskip=10mm]{geometry}
+
+% --- Интервал 1.5 ---
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Абзацный отступ ---
+\usepackage{indentfirst}
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0pt}
+
+% --- Математика ---
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{bm}
+
+% --- Графика ---
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, calc, shapes.geometric}
+\usepackage{float}
+\graphicspath{{figures/}}
+
+% --- Таблицы ---
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{longtable}
+
+% --- Подписи к рисункам и таблицам ---
+\usepackage[labelsep=endash, font=small, justification=centering]{caption}
+\captionsetup[figure]{name=Рисунок}
+\captionsetup[table]{name=Таблица}
+
+% --- Гиперссылки ---
+\usepackage[hidelinks, unicode=true]{hyperref}
+\usepackage{cleveref}
+% Явно задаём имена для всех типов ссылок, чтобы cleveref не пытался
+% синтезировать «Глава» через babel-макросы \cyrg\cyrl\cyra\cyrv,
+% которых нет под polyglossia.
+\crefname{chapter}{гл.}{гл.}
+\Crefname{chapter}{Глава}{Главы}
+\crefname{section}{разд.}{разд.}
+\Crefname{section}{Раздел}{Разделы}
+\crefname{subsection}{разд.}{разд.}
+\Crefname{subsection}{Раздел}{Разделы}
+\crefname{figure}{рис.}{рис.}
+\Crefname{figure}{Рисунок}{Рисунки}
+\crefname{table}{табл.}{табл.}
+\Crefname{table}{Таблица}{Таблицы}
+\crefname{equation}{}{}
+\Crefname{equation}{Уравнение}{Уравнения}
+\crefname{proposition}{утв.}{утв.}
+\Crefname{proposition}{Утверждение}{Утверждения}
+
+% --- Списки ---
+\usepackage{enumitem}
+\setlist{nosep, leftmargin=*}
+
+% --- Заголовки глав/секций (ГОСТ-стиль ФПМИ) ---
+\usepackage{titlesec}
+\titleformat{\chapter}[block]
+  {\normalfont\Large\bfseries\centering}
+  {\thechapter}{1ex}{}
+\titlespacing*{\chapter}{0pt}{0pt}{2ex}
+
+\titleformat{\section}[block]
+  {\normalfont\large\bfseries}
+  {\thesection}{1ex}{}
+\titleformat{\subsection}[block]
+  {\normalfont\normalsize\bfseries}
+  {\thesubsection}{1ex}{}
+
+% --- Нумерация страниц ---
+\usepackage{fancyhdr}
+\pagestyle{plain}
+
+% --- Библиография через biblatex (ГОСТ) ---
+\usepackage[backend=biber,
+            style=gost-numeric,
+            sorting=none,
+            language=auto,
+            autolang=other,
+            doi=true,
+            isbn=false,
+            url=true]{biblatex}
+
+% --- Теоремы, определения ---
+\newtheorem{theorem}{Теорема}
+\newtheorem{lemma}{Лемма}
+\newtheorem{proposition}{Утверждение}
+\theoremstyle{definition}
+\newtheorem{definition}{Определение}
+\newtheorem{example}{Пример}
+\theoremstyle{remark}
+\newtheorem{remark}{Замечание}
+
+% --- Удобные сокращения ---
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\Corr}{\operatorname{Corr}}
+\newcommand{\dd}{\,\mathrm{d}}
+\DeclareMathOperator{\sech}{sech}
+
+% --- Заглушка-плейсхолдер для графиков (зелёный квадрат) ---
+% Использование: \placeholderfig{ширина}{высота}{подпись}{метка}
+\newcommand{\placeholderfig}[4]{%
+  \begin{figure}[H]
+    \centering
+    \begin{tikzpicture}
+      \fill[green!55!black!40] (0,0) rectangle (#1,#2);
+      \draw[green!40!black, thick] (0,0) rectangle (#1,#2);
+      \node[font=\small\itshape, text=black!70]
+            at (#1/2, #2/2) {Место для графика};
+    \end{tikzpicture}
+    \caption{#3}
+    \label{#4}
+  \end{figure}}
+
+% Заглушка для таблицы
+\newcommand{\placeholdertab}[2]{%
+  \begin{table}[H]
+    \centering
+    \caption{#1}\label{#2}
+    \begin{tabular}{|c|c|c|c|}
+      \hline
+      \multicolumn{4}{|c|}{\textit{Место для таблицы --- будет заполнено}}\\
+      \hline
+      --- & --- & --- & --- \\
+      \hline
+      --- & --- & --- & --- \\
+      \hline
+    \end{tabular}
+  \end{table}}
+
+% Заглушка-абзац для будущего текста
+\newcommand{\todoblock}[1]{%
+  \par\medskip
+  \noindent\fbox{\parbox{0.96\linewidth}{\textit{TODO:} #1}}
+  \par\medskip}

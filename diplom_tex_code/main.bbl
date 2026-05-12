@@ -1,0 +1,318 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{none/global//global/global/global}
+    \entry{joas2024}{misc}{}{}
+      \name{author}{1}{}{%
+        {{hash=bfc46fe93442cbf388c808d916a6bd03}{%
+           family={{Journal of Open Aviation Science (JOAS) template}},
+           familyi={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{fullhash}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{fullhashraw}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{bibnamehash}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{authorbibnamehash}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{authornamehash}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{authorfullhash}{bfc46fe93442cbf388c808d916a6bd03}
+      \strng{authorfullhashraw}{bfc46fe93442cbf388c808d916a6bd03}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{note}{Уточнить полные библиографические данные --- статья, на которую ссылается оригинальное ТЗ работы.}
+      \field{title}{Deep Learning Pricing and Greeks of Path-Dependent Options}
+      \field{year}{2024}
+    \endentry
+    \entry{kemna1990}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=de586d4def46c838c5ae043e7bcd9b6c}{%
+           family={Kemna},
+           familyi={K\bibinitperiod},
+           given={A.\bibnamedelimi G.\bibnamedelimi Z.},
+           giveni={A\bibinitperiod\bibinitdelim G\bibinitperiod\bibinitdelim Z\bibinitperiod}}}%
+        {{hash=1fce5d98777e7f2ef085e180960cd284}{%
+           family={Vorst},
+           familyi={V\bibinitperiod},
+           given={A.\bibnamedelimi C.\bibnamedelimi F.},
+           giveni={A\bibinitperiod\bibinitdelim C\bibinitperiod\bibinitdelim F\bibinitperiod}}}%
+      }
+      \strng{namehash}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{fullhash}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{fullhashraw}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{bibnamehash}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{authorbibnamehash}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{authornamehash}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{authorfullhash}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \strng{authorfullhashraw}{e428ea11fc9a5f5b7f4151e3e0265924}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{internalsortvolume}{14}
+      \field{journaltitle}{Journal of Banking \& Finance}
+      \field{title}{A Pricing Method for Options Based on Average Asset Values}
+      \field{year}{1990}
+      \field{pages}{113\bibrangedash 129}
+      \range{pages}{17}
+      \field{volume}{14}
+      \range{volume}{1}
+    \endentry
+    \entry{leoni2014commodity}{article}{}{}
+      \name{author}{2}{}{%
+        {{hash=7bcb25f23dc05203a5dcdf2f2862cc85}{%
+           family={Leoni},
+           familyi={L\bibinitperiod},
+           given={Peter},
+           giveni={P\bibinitperiod}}}%
+        {{hash=9064334be944f7696c19303991c21f4e}{%
+           family={Vargiolu},
+           familyi={V\bibinitperiod},
+           given={Tiziano},
+           giveni={T\bibinitperiod}}}%
+      }
+      \strng{namehash}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{fullhash}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{fullhashraw}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{bibnamehash}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{authorbibnamehash}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{authornamehash}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{authorfullhash}{20a11d94a6d158c1070904db499c9fdf}
+      \strng{authorfullhashraw}{20a11d94a6d158c1070904db499c9fdf}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{internalsortvolume}{44}
+      \field{journaltitle}{Energy Economics}
+      \field{note}{Уточнить выходные данные}
+      \field{title}{Hedging of Asian Options in Commodity Markets}
+      \field{year}{2014}
+      \field{pages}{1\bibrangedash 12}
+      \range{pages}{12}
+      \field{volume}{44}
+      \range{volume}{1}
+    \endentry
+    \entry{shreve2004stoch}{book}{}{}
+      \name{author}{1}{}{%
+        {{hash=9e110e7c548ab825117ed32cb12bdfd3}{%
+           family={Shreve},
+           familyi={S\bibinitperiod},
+           given={Steven\bibnamedelima E.},
+           giveni={S\bibinitperiod\bibinitdelim E\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {New York}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{fullhash}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{fullhashraw}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{bibnamehash}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{authorbibnamehash}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{authornamehash}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{authorfullhash}{9e110e7c548ab825117ed32cb12bdfd3}
+      \strng{authorfullhashraw}{9e110e7c548ab825117ed32cb12bdfd3}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Stochastic Calculus for Finance II: Continuous-Time Models}
+      \field{year}{2004}
+    \endentry
+    \entry{stulz1982options}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=7fc218f05a3550a77ae11d02addb8e94}{%
+           family={Stulz},
+           familyi={S\bibinitperiod},
+           given={René\bibnamedelima M.},
+           giveni={R\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
+      }
+      \strng{namehash}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{fullhash}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{fullhashraw}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{bibnamehash}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{authorbibnamehash}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{authornamehash}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{authorfullhash}{7fc218f05a3550a77ae11d02addb8e94}
+      \strng{authorfullhashraw}{7fc218f05a3550a77ae11d02addb8e94}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{internalsortvolume}{10}
+      \field{journaltitle}{Journal of Financial Economics}
+      \field{title}{Options on the Minimum or the Maximum of Two Risky Assets}
+      \field{year}{1982}
+      \field{number}{2}
+      \range{number}{1}
+      \field{pages}{161\bibrangedash 185}
+      \range{pages}{25}
+      \field{volume}{10}
+      \range{volume}{1}
+    \endentry
+    \entry{johnson1987options}{article}{}{}
+      \name{author}{1}{}{%
+        {{hash=b46baaa996ee92373c1dcd8bb803d330}{%
+           family={Johnson},
+           familyi={J\bibinitperiod},
+           given={Herb},
+           giveni={H\bibinitperiod}}}%
+      }
+      \strng{namehash}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{fullhash}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{fullhashraw}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{bibnamehash}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{authorbibnamehash}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{authornamehash}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{authorfullhash}{b46baaa996ee92373c1dcd8bb803d330}
+      \strng{authorfullhashraw}{b46baaa996ee92373c1dcd8bb803d330}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{internalsortvolume}{22}
+      \field{journaltitle}{Journal of Financial and Quantitative Analysis}
+      \field{title}{Options on the Maximum or the Minimum of Several Assets}
+      \field{year}{1987}
+      \field{number}{3}
+      \range{number}{1}
+      \field{pages}{277\bibrangedash 283}
+      \range{pages}{7}
+      \field{volume}{22}
+      \range{volume}{1}
+    \endentry
+    \entry{glasserman2004monte}{book}{}{}
+      \name{author}{1}{}{%
+        {{hash=ad8512135fae00796ff8f92716d977c9}{%
+           family={Glasserman},
+           familyi={G\bibinitperiod},
+           given={Paul},
+           giveni={P\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {New York}%
+      }
+      \list{publisher}{1}{%
+        {Springer}%
+      }
+      \strng{namehash}{ad8512135fae00796ff8f92716d977c9}
+      \strng{fullhash}{ad8512135fae00796ff8f92716d977c9}
+      \strng{fullhashraw}{ad8512135fae00796ff8f92716d977c9}
+      \strng{bibnamehash}{ad8512135fae00796ff8f92716d977c9}
+      \strng{authorbibnamehash}{ad8512135fae00796ff8f92716d977c9}
+      \strng{authornamehash}{ad8512135fae00796ff8f92716d977c9}
+      \strng{authorfullhash}{ad8512135fae00796ff8f92716d977c9}
+      \strng{authorfullhashraw}{ad8512135fae00796ff8f92716d977c9}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Monte Carlo Methods in Financial Engineering}
+      \field{year}{2004}
+    \endentry
+    \entry{buhler2019deephedging}{article}{useauthor=false}{}
+      \name{author}{4}{}{%
+        {{hash=50a3c4bd76465b43d74734f021d7acaf}{%
+           family={Buehler},
+           familyi={B\bibinitperiod},
+           given={Hans},
+           giveni={H\bibinitperiod}}}%
+        {{hash=5fe106da0d55b74c141e63e708b23ec2}{%
+           family={Gonon},
+           familyi={G\bibinitperiod},
+           given={Lukas},
+           giveni={L\bibinitperiod}}}%
+        {{hash=054389144437c867e3d644c93f101fc8}{%
+           family={Teichmann},
+           familyi={T\bibinitperiod},
+           given={Josef},
+           giveni={J\bibinitperiod}}}%
+        {{hash=529a543e6694ed3acb27a37683e09de6}{%
+           family={Wood},
+           familyi={W\bibinitperiod},
+           given={Ben},
+           giveni={B\bibinitperiod}}}%
+      }
+      \strng{authorbibnamehash}{d90856e51f7f10b883ab5db8820da4e1}
+      \strng{authornamehash}{d90856e51f7f10b883ab5db8820da4e1}
+      \strng{authorfullhash}{175506e841be70f90f5d9d975dd4d50e}
+      \strng{authorfullhashraw}{175506e841be70f90f5d9d975dd4d50e}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labeltitlesource}{title}
+      \field{internalsortvolume}{19}
+      \field{journaltitle}{Quantitative Finance}
+      \field{title}{Deep Hedging}
+      \field{year}{2019}
+      \field{number}{8}
+      \range{number}{1}
+      \field{pages}{1271\bibrangedash 1291}
+      \range{pages}{21}
+      \field{volume}{19}
+      \range{volume}{1}
+    \endentry
+    \entry{horvath2021deepvol}{article}{}{}
+      \name{author}{3}{}{%
+        {{hash=8104ec1a36a6da61ac9864caddf7d3f7}{%
+           family={Horvath},
+           familyi={H\bibinitperiod},
+           given={Blanka},
+           giveni={B\bibinitperiod}}}%
+        {{hash=ecfde37d05b1209a87758adee828a8a4}{%
+           family={Muguruza},
+           familyi={M\bibinitperiod},
+           given={Aitor},
+           giveni={A\bibinitperiod}}}%
+        {{hash=edb7b2f396ad33a649cdc1d833c19580}{%
+           family={Tomas},
+           familyi={T\bibinitperiod},
+           given={Mehdi},
+           giveni={M\bibinitperiod}}}%
+      }
+      \strng{namehash}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{fullhash}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{fullhashraw}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{bibnamehash}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{authorbibnamehash}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{authornamehash}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{authorfullhash}{ddf0c3019c3e45da7b19757075d2c50d}
+      \strng{authorfullhashraw}{ddf0c3019c3e45da7b19757075d2c50d}
+      \field{sortinit}{9}
+      \field{sortinithash}{0a5ebc79d83c96b6579069544c73c7d4}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{internalsortvolume}{21}
+      \field{journaltitle}{Quantitative Finance}
+      \field{title}{Deep Learning Volatility: A Deep Neural Network Perspective on Pricing and Calibration in (Rough) Volatility Models}
+      \field{year}{2021}
+      \field{number}{1}
+      \range{number}{1}
+      \field{pages}{11\bibrangedash 27}
+      \range{pages}{17}
+      \field{volume}{21}
+      \range{volume}{1}
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+
