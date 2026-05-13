@@ -3537,17 +3537,39 @@
   </bcf:bibdata>
   <bcf:section number="0">
     <bcf:citekey order="1" intorder="1">joas2024</bcf:citekey>
-    <bcf:citekey order="2" intorder="1">kemna1990</bcf:citekey>
-    <bcf:citekey order="2" intorder="2">leoni2014commodity</bcf:citekey>
-    <bcf:citekey order="3" intorder="1">shreve2004stoch</bcf:citekey>
-    <bcf:citekey order="4" intorder="1">stulz1982options</bcf:citekey>
-    <bcf:citekey order="4" intorder="2">johnson1987options</bcf:citekey>
-    <bcf:citekey order="5" intorder="1">glasserman2004monte</bcf:citekey>
-    <bcf:citekey order="6" intorder="1">shreve2004stoch</bcf:citekey>
-    <bcf:citekey order="7" intorder="1">stulz1982options</bcf:citekey>
-    <bcf:citekey order="8" intorder="1">buhler2019deephedging</bcf:citekey>
-    <bcf:citekey order="9" intorder="1">horvath2021deepvol</bcf:citekey>
-    <bcf:citekey order="9" intorder="2">joas2024</bcf:citekey>
+    <bcf:citekey order="2" intorder="1">kemna1990pricing</bcf:citekey>
+    <bcf:citekey order="3" intorder="1">kemna1990pricing</bcf:citekey>
+    <bcf:citekey order="3" intorder="2">vorst1992prices</bcf:citekey>
+    <bcf:citekey order="4" intorder="1">leoni2014commodity</bcf:citekey>
+    <bcf:citekey order="4" intorder="2">geman2005commodities</bcf:citekey>
+    <bcf:citekey order="5" intorder="1">MaValencia2018</bcf:citekey>
+    <bcf:citekey order="6" intorder="1">wilmott2006pwif</bcf:citekey>
+    <bcf:citekey order="7" intorder="1">bossu2014correlation</bcf:citekey>
+    <bcf:citekey order="8" intorder="1">shreve2004stoch</bcf:citekey>
+    <bcf:citekey order="9" intorder="1">black1973pricing</bcf:citekey>
+    <bcf:citekey order="9" intorder="2">merton1973rational</bcf:citekey>
+    <bcf:citekey order="10" intorder="1">shreve2004stoch</bcf:citekey>
+    <bcf:citekey order="11" intorder="1">leland1985option</bcf:citekey>
+    <bcf:citekey order="11" intorder="2">wilmott2006pwif</bcf:citekey>
+    <bcf:citekey order="12" intorder="1">kemna1990pricing</bcf:citekey>
+    <bcf:citekey order="12" intorder="2">vorst1992prices</bcf:citekey>
+    <bcf:citekey order="13" intorder="1">stulz1982options</bcf:citekey>
+    <bcf:citekey order="13" intorder="2">johnson1987options</bcf:citekey>
+    <bcf:citekey order="14" intorder="1">vorst1992prices</bcf:citekey>
+    <bcf:citekey order="14" intorder="2">wilmott2006pwif</bcf:citekey>
+    <bcf:citekey order="15" intorder="1">glasserman2004monte</bcf:citekey>
+    <bcf:citekey order="16" intorder="1">ahdida2013jacobi</bcf:citekey>
+    <bcf:citekey order="17" intorder="1">markowitz1952portfolio</bcf:citekey>
+    <bcf:citekey order="18" intorder="1">Sharpe1966</bcf:citekey>
+    <bcf:citekey order="19" intorder="1">MartinMcCann1989</bcf:citekey>
+    <bcf:citekey order="20" intorder="1">stulz1982options</bcf:citekey>
+    <bcf:citekey order="21" intorder="1">plackett1954</bcf:citekey>
+    <bcf:citekey order="22" intorder="1">stulz1982options</bcf:citekey>
+    <bcf:citekey order="22" intorder="2">johnson1987options</bcf:citekey>
+    <bcf:citekey order="23" intorder="1">margrabe1978value</bcf:citekey>
+    <bcf:citekey order="24" intorder="1">buhler2019deephedging</bcf:citekey>
+    <bcf:citekey order="25" intorder="1">horvath2021deepvol</bcf:citekey>
+    <bcf:citekey order="25" intorder="2">joas2024</bcf:citekey>
   </bcf:section>
   <!-- SORTING TEMPLATES -->
   <bcf:sortingtemplate name="none">
