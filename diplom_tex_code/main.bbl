@@ -454,35 +454,6 @@
       \field{volume}{22}
       \range{volume}{1}
     \endentry
-    \entry{glasserman2004monte}{book}{}{}
-      \name{author}{1}{}{%
-        {{hash=ad8512135fae00796ff8f92716d977c9}{%
-           family={Glasserman},
-           familyi={G\bibinitperiod},
-           given={Paul},
-           giveni={P\bibinitperiod}}}%
-      }
-      \list{location}{1}{%
-        {New York}%
-      }
-      \list{publisher}{1}{%
-        {Springer}%
-      }
-      \strng{namehash}{ad8512135fae00796ff8f92716d977c9}
-      \strng{fullhash}{ad8512135fae00796ff8f92716d977c9}
-      \strng{fullhashraw}{ad8512135fae00796ff8f92716d977c9}
-      \strng{bibnamehash}{ad8512135fae00796ff8f92716d977c9}
-      \strng{authorbibnamehash}{ad8512135fae00796ff8f92716d977c9}
-      \strng{authornamehash}{ad8512135fae00796ff8f92716d977c9}
-      \strng{authorfullhash}{ad8512135fae00796ff8f92716d977c9}
-      \strng{authorfullhashraw}{ad8512135fae00796ff8f92716d977c9}
-      \field{sortinit}{1}
-      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{title}{Monte Carlo Methods in Financial Engineering}
-      \field{year}{2004}
-    \endentry
     \entry{ahdida2013jacobi}{article}{}{}
       \name{author}{2}{}{%
         {{hash=f82f2096a7f6ad15d28f051b25c7ff16}{%

@@ -3557,19 +3557,18 @@
     <bcf:citekey order="13" intorder="2">johnson1987options</bcf:citekey>
     <bcf:citekey order="14" intorder="1">vorst1992prices</bcf:citekey>
     <bcf:citekey order="14" intorder="2">wilmott2006pwif</bcf:citekey>
-    <bcf:citekey order="15" intorder="1">glasserman2004monte</bcf:citekey>
-    <bcf:citekey order="16" intorder="1">ahdida2013jacobi</bcf:citekey>
-    <bcf:citekey order="17" intorder="1">markowitz1952portfolio</bcf:citekey>
-    <bcf:citekey order="18" intorder="1">Sharpe1966</bcf:citekey>
-    <bcf:citekey order="19" intorder="1">MartinMcCann1989</bcf:citekey>
-    <bcf:citekey order="20" intorder="1">stulz1982options</bcf:citekey>
-    <bcf:citekey order="21" intorder="1">plackett1954</bcf:citekey>
-    <bcf:citekey order="22" intorder="1">stulz1982options</bcf:citekey>
-    <bcf:citekey order="22" intorder="2">johnson1987options</bcf:citekey>
-    <bcf:citekey order="23" intorder="1">margrabe1978value</bcf:citekey>
-    <bcf:citekey order="24" intorder="1">buhler2019deephedging</bcf:citekey>
-    <bcf:citekey order="25" intorder="1">horvath2021deepvol</bcf:citekey>
-    <bcf:citekey order="25" intorder="2">joas2024</bcf:citekey>
+    <bcf:citekey order="15" intorder="1">ahdida2013jacobi</bcf:citekey>
+    <bcf:citekey order="16" intorder="1">markowitz1952portfolio</bcf:citekey>
+    <bcf:citekey order="17" intorder="1">Sharpe1966</bcf:citekey>
+    <bcf:citekey order="18" intorder="1">MartinMcCann1989</bcf:citekey>
+    <bcf:citekey order="19" intorder="1">stulz1982options</bcf:citekey>
+    <bcf:citekey order="20" intorder="1">plackett1954</bcf:citekey>
+    <bcf:citekey order="21" intorder="1">stulz1982options</bcf:citekey>
+    <bcf:citekey order="21" intorder="2">johnson1987options</bcf:citekey>
+    <bcf:citekey order="22" intorder="1">margrabe1978value</bcf:citekey>
+    <bcf:citekey order="23" intorder="1">buhler2019deephedging</bcf:citekey>
+    <bcf:citekey order="24" intorder="1">horvath2021deepvol</bcf:citekey>
+    <bcf:citekey order="24" intorder="2">joas2024</bcf:citekey>
   </bcf:section>
   <!-- SORTING TEMPLATES -->
   <bcf:sortingtemplate name="none">

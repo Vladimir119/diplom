@@ -6,16 +6,14 @@
 \contentsline {chapter}{\numberline {1}Экзотические деривативы и их применение на практике}{7}{chapter.1}%
 \contentsline {section}{\numberline {1.1}Обзор экзотических деривативов}{7}{section.1.1}%
 \contentsline {subsection}{\numberline {1.1.1}Азиатские опционы}{7}{subsection.1.1.1}%
-\contentsline {subsection}{\numberline {1.1.2}Барьерные опционы}{7}{subsection.1.1.2}%
-\contentsline {subsection}{\numberline {1.1.3}Радужные (rainbow) опционы}{8}{subsection.1.1.3}%
-\contentsline {subsection}{\numberline {1.1.4}Корреляционные свопы}{8}{subsection.1.1.4}%
-\contentsline {section}{\numberline {1.2}Применение экзотических деривативов на практике}{9}{section.1.2}%
-\contentsline {paragraph}{Азиатские опционы на сырьевых рынках.}{9}{section.1.2}%
-\contentsline {paragraph}{Барьерные опционы.}{9}{section.1.2}%
+\contentsline {subsection}{\numberline {1.1.2}Радужные (rainbow) опционы}{7}{subsection.1.1.2}%
+\contentsline {subsection}{\numberline {1.1.3}Корреляционные свопы}{8}{subsection.1.1.3}%
+\contentsline {section}{\numberline {1.2}Применение экзотических деривативов на практике}{8}{section.1.2}%
+\contentsline {paragraph}{Азиатские опционы на сырьевых рынках.}{8}{section.1.2}%
 \contentsline {paragraph}{Радужные (rainbow) опционы.}{9}{section.1.2}%
-\contentsline {paragraph}{Корреляционные свопы и дисперсионная торговля.}{9}{section.1.2}%
-\contentsline {section}{\numberline {1.3}Методы оценки и их сложности}{10}{section.1.3}%
-\contentsline {chapter}{\numberline {2}Корреляционные деривативы и rainbow-опционы}{12}{chapter.2}%
+\contentsline {paragraph}{Корреляционные свопыs.}{9}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Методы оценки и их сложности}{9}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Корреляционные деривативы и радужные опционы}{12}{chapter.2}%
 \contentsline {section}{\numberline {2.1}Корреляционный своп}{12}{section.2.1}%
 \contentsline {subsection}{\numberline {2.1.1}Определение, выплата, экономический смысл}{12}{subsection.2.1.1}%
 \contentsline {subsection}{\numberline {2.1.2}Расчёт справедливой стоимости}{13}{subsection.2.1.2}%
@@ -26,33 +24,34 @@
 \contentsline {subsection}{\numberline {2.1.3}Forward-стоимость и аддитивность по уже реализованным значениям}{17}{subsection.2.1.3}%
 \contentsline {subsection}{\numberline {2.1.4}Хеджирование от пузырей с помощью корреляционных свопов}{19}{subsection.2.1.4}%
 \contentsline {paragraph}{Эмпирическая мотивация.}{19}{subsection.2.1.4}%
-\contentsline {paragraph}{Постановка задачи и роли параметров.}{20}{figure.caption.9}%
-\contentsline {subsection}{\numberline {2.1.5}Корреляционный своп как источник волатильности портфеля}{21}{subsection.2.1.5}%
-\contentsline {subsection}{\numberline {2.1.6}Хеджирование rainbow-опционов с помощью корреляционных свопов}{23}{subsection.2.1.6}%
-\contentsline {section}{\numberline {2.2}Rainbow-опционы}{24}{section.2.2}%
+\contentsline {paragraph}{Постановка задачи и роли параметров.}{20}{figure.caption.8}%
+\contentsline {subsection}{\numberline {2.1.5}Корреляционный своп как источник волатильности портфеля}{22}{subsection.2.1.5}%
+\contentsline {subsection}{\numberline {2.1.6}Хеджирование радужных опционов с помощью корреляционных свопов}{23}{subsection.2.1.6}%
+\contentsline {section}{\numberline {2.2}Радужные опционы}{24}{section.2.2}%
 \contentsline {subsection}{\numberline {2.2.1}Полу-замкнутая формула и сложность её применения}{24}{subsection.2.2.1}%
 \contentsline {paragraph}{Вспомогательная волатильность $\sigma $.}{26}{equation.2.19}%
 \contentsline {paragraph}{Стандартизованные лог-моменты $y_1,\,y_2$.}{26}{equation.2.20}%
 \contentsline {paragraph}{Стандартизованный лог-спред $d$.}{26}{equation.2.21}%
 \contentsline {paragraph}{Промежуточные корреляции $\rho _1, \rho _2$.}{26}{equation.2.22}%
 \contentsline {subsection}{\numberline {2.2.2}Декомпозиция цены на компоненты}{27}{subsection.2.2.2}%
-\contentsline {subsection}{\numberline {2.2.3}Динамическое хеджирование}{29}{subsection.2.2.3}%
-\contentsline {chapter}{\numberline {3}Оценка rainbow-опционов с помощью методов машинного обучения}{31}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Зачем использовать ML в оценке деривативов}{31}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Обучение остатка декомпозиции цены}{31}{section.3.2}%
-\contentsline {section}{\numberline {3.3}Прогнозирование цены за счёт прогноза риск-факторов (\emph {for info})}{32}{section.3.3}%
-\contentsline {chapter}{\numberline {4}Данные и методы обработки}{33}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Цены базовых активов}{33}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Цены корреляционных свопов}{33}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Цены rainbow-опционов}{34}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Дополнительная предобработка}{34}{section.4.4}%
-\contentsline {chapter}{\numberline {5}Реализация и сравнение результатов}{35}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Статическое хеджирование}{35}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Динамическое хеджирование с ребалансировкой}{36}{section.5.2}%
-\contentsline {section}{\numberline {5.3}Обучение модели остатка $R$}{36}{section.5.3}%
-\contentsline {section}{\numberline {5.4}Прямое обучение цены rainbow-опциона}{38}{section.5.4}%
-\contentsline {section}{\numberline {5.5}Сводная таблица результатов}{38}{section.5.5}%
-\contentsline {chapter}{Заключение}{40}{chapter*.27}%
-\contentsline {chapter}{Список литературы}{41}{chapter*.28}%
-\contentsline {chapter}{\numberline {A}Подробности по данным}{43}{appendix.A}%
-\contentsline {chapter}{\numberline {B}Технические детали реализации}{44}{appendix.B}%
+\contentsline {subsection}{\numberline {2.2.3}Динамическое хеджирование}{30}{subsection.2.2.3}%
+\contentsline {chapter}{\numberline {3}Оценка радужных опционов с помощью методов машинного обучения}{32}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Зачем использовать ML в оценке деривативов}{32}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Обучение остатка декомпозиции цены}{32}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Прямой прогноз цены радужного опциона}{33}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Прогнозирование цены за счёт прогноза риск-факторов (\emph {for info})}{34}{section.3.4}%
+\contentsline {chapter}{\numberline {4}Данные, методы обработки и модели}{35}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Цены базовых активов}{35}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Цены корреляционных свопов}{35}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Цены радужных опционов}{36}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Дополнительная предобработка}{36}{section.4.4}%
+\contentsline {chapter}{\numberline {5}Реализация и сравнение результатов}{37}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Статическое хеджирование}{37}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Динамическое хеджирование с ребалансировкой}{38}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Обучение модели остатка $R$}{39}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Прямое обучение цены радужного опциона}{39}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Сводная таблица результатов}{40}{section.5.5}%
+\contentsline {chapter}{Заключение}{42}{chapter*.23}%
+\contentsline {chapter}{Список литературы}{43}{chapter*.24}%
+\contentsline {chapter}{\numberline {A}Подробности по данным}{45}{appendix.A}%
+\contentsline {chapter}{\numberline {B}Технические детали реализации}{46}{appendix.B}%
