@@ -33,9 +33,25 @@
   \label{fig:static-hedge}
 \end{figure}
 
-\placeholdertab{Метрики ошибки статического хеджа (RMSE, MAE) по
-страйкам и срокам $T$.}{tab:static-metrics}
-
+\begin{table}[H]
+\centering
+\caption{Метрики ошибки для статического хеджирования по страйкам и срочностям (тестовая выборка)}
+\label{tab:metrics_static}
+\begin{tabular}{ccrr}
+\toprule
+$T$, годы & Страйк, \% от спота & MAE & RMSE \\
+\midrule
+\multirow{2}{*}{0.5} & 100 & 5.36 & 7.17 \\
+                     & 120 & 1.71 & 2.26 \\
+\midrule
+\multirow{2}{*}{1.0} & 100 & 6.00 & 8.05 \\
+                     & 120 & 5.15 & 6.73 \\
+\midrule
+\multirow{2}{*}{1.5} & 100 & 7.60 & 10.13 \\
+                     & 120 & 5.60 & 7.85 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Динамическое хеджирование с ребалансировкой}
 \label{sec:res-dynamic}
@@ -57,8 +73,25 @@
 ребалансировки $M$ при разных коэффициентах транзакционных издержек
 $\tau$.}{fig:dyn-pnl-vs-M}
 
-\placeholdertab{Метрики ошибки динамического хеджа по разным $M$ и
-$\tau$.}{tab:dynamic-metrics}
+\begin{table}[H]
+\centering
+\caption{Метрики ошибки для динамического хеджирования с ребалансировкой (тестовая выборка)}
+\label{tab:metrics_dynamic}
+\begin{tabular}{ccrr}
+\toprule
+$T$, годы & Страйк, \% от спота & MAE & RMSE \\
+\midrule
+\multirow{2}{*}{0.5} & 100 & 0.55 & 0.93 \\
+                     & 120 & 0.24 & 0.44 \\
+\midrule
+\multirow{2}{*}{1.0} & 100 & 0.65 & 1.15 \\
+                     & 120 & 0.47 & 0.87 \\
+\midrule
+\multirow{2}{*}{1.5} & 100 & 0.68 & 1.28 \\
+                     & 120 & 0.60 & 1.17 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Обучение модели остатка $R$}
 \label{sec:res-residual}
@@ -81,6 +114,27 @@ $\tau$.}{tab:dynamic-metrics}
 %   \caption{График динамики цены статического хеджа и радужного опциона для пары активов Cisco и Intel, с двумя страйками 100\% (синия веревка), и 120\% (ораньжевая веревка) от спотовой цены, который заключен на 3 месяца, за весь 2000 год.}%
 %   \label{fig:static-hedge}
 % \end{figure}
+
+\begin{table}[H]
+\centering
+\caption{Метрики ошибки для модели обучения остатка $R$ (CatBoost) на тестовой выборке}
+\label{tab:metrics_residual}
+\begin{tabular}{ccrr}
+\toprule
+$T$, годы & Страйк, \% от спота & MAE & RMSE \\
+\midrule
+\multirow{2}{*}{0.5} & 100 & 0.53 & 0.92 \\
+                     & 120 & 0.17 & 0.42 \\
+\midrule
+\multirow{2}{*}{1.0} & 100 & 0.61 & 1.15 \\
+                     & 120 & 0.43 & 0.86 \\
+\midrule
+\multirow{2}{*}{1.5} & 100 & 0.65 & 1.28 \\
+                     & 120 & 0.56 & 1.17 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Прямое обучение цены радужного опциона}
 \label{sec:res-direct}
@@ -109,6 +163,26 @@ $\tau$.}{tab:dynamic-metrics}
   \label{fig:model-comparison2}
 \end{figure}
 
+\begin{table}[H]
+\centering
+\caption{Метрики ошибки для прямого обучения цены радужного опциона (RainbowPriceMLP, $C_{\max}$) на тестовой выборке}
+\label{tab:metrics_rainbow_mlp}
+\begin{tabular}{ccrr}
+\toprule
+$T$, годы & Страйк, \% от спота & MAE & RMSE \\
+\midrule
+\multirow{2}{*}{0.5} & 100 & 1.9192 & 2.2249 \\
+                     & 120 & 1.2801 & 1.5566 \\
+\midrule
+\multirow{2}{*}{1.0} & 100 & 1.9351 & 2.2741 \\
+                     & 120 & 1.4539 & 1.7610 \\
+\midrule
+\multirow{2}{*}{1.5} & 100 & 1.7246 & 2.1266 \\
+                     & 120 & 1.5666 & 1.9117 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Сводная таблица результатов}
 \label{sec:res-summary}
 
@@ -118,20 +192,38 @@ $\tau$.}{tab:dynamic-metrics}
  представлял собой набор из 4-и компаний: Apple, Microsoft, Alphabet, Amazon, Intel и Cisco, и попарных 
  радужных опционов на них (6 пар).
 
-\begin{table}[H]
-  \centering
-  \caption{Сводные метрики ошибок всех методов на тестовой выборке.}
-  \label{tab:summary-metrics}
-  \begin{tabularx}{0.1\linewidth}{>{\raggedright\arraybackslash}X c c}
-    \toprule
-    \textbf{Метод} & \textbf{RMSE} & \textbf{MAE} \\
-    \midrule
-    Статическое хеджирование (\cref{sec:res-static})  & ---  & ---  \\
-    Динамический хедж (\cref{sec:res-dynamic})        & ---  & ---  \\
-    Модель остатка $R$ (\cref{sec:res-residual})      & ---  & ---  \\
-    Прямая модель цены (\cref{sec:res-direct})        & ---  & ---  \\
-    \bottomrule
-  \end{tabularx}
+ \begin{table}[H]
+\centering
+\caption{Сводные результаты: метрики MAE и RMSE для всех методов по страйкам и срочностям (тестовая выборка)}
+\label{tab:metrics_summary}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrrrr}
+\toprule
+\multirow{2}{*}{Метод} & \multirow{2}{*}{Метрика}
+  & \multicolumn{2}{c}{$T=0.5$}
+  & \multicolumn{2}{c}{$T=1.0$}
+  & \multicolumn{2}{c}{$T=1.5$} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+ &  & 100\% & 120\% & 100\% & 120\% & 100\% & 120\% \\
+\midrule
+\multirow{2}{*}{Статическое хеджирование}
+  & MAE  & 5.36 & 1.71 & 6.00 & 5.15 & 7.60 & 5.60 \\
+  & RMSE & 7.17 & 2.26 & 8.05 & 6.73 & 10.13 & 7.85 \\
+\midrule
+\multirow{2}{*}{Динамическое хеджирование}
+  & MAE  & 0.55 & 0.24 & 0.65 & 0.47 & 0.68 & 0.60 \\
+  & RMSE & 0.93 & 0.44 & 1.15 & 0.87 & 1.28 & 1.17 \\
+\midrule
+\multirow{2}{*}{Обучение остатка $R$ (CatBoost)}
+  & MAE  & 0.53 & 0.17 & 0.61 & 0.43 & 0.65 & 0.56 \\
+  & RMSE & 0.92 & 0.42 & 1.15 & 0.86 & 1.28 & 1.17 \\
+\midrule
+\multirow{2}{*}{Прямое обучение цены (MLP)}
+  & MAE  & 1.92 & 1.28 & 1.94 & 1.45 & 1.72 & 1.57 \\
+  & RMSE & 2.22 & 1.56 & 2.27 & 1.76 & 2.13 & 1.91 \\
+\bottomrule
+\end{tabular}
 \end{table}
 
 \textbf{Выводы сравнения:} На основе представленных метрик 

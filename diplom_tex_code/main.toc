@@ -44,14 +44,13 @@
 \contentsline {section}{\numberline {4.1}Цены базовых активов}{35}{section.4.1}%
 \contentsline {section}{\numberline {4.2}Цены корреляционных свопов}{35}{section.4.2}%
 \contentsline {section}{\numberline {4.3}Цены радужных опционов}{36}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Дополнительная предобработка}{36}{section.4.4}%
 \contentsline {chapter}{\numberline {5}Реализация и сравнение результатов}{37}{chapter.5}%
 \contentsline {section}{\numberline {5.1}Статическое хеджирование}{37}{section.5.1}%
 \contentsline {section}{\numberline {5.2}Динамическое хеджирование с ребалансировкой}{38}{section.5.2}%
 \contentsline {section}{\numberline {5.3}Обучение модели остатка $R$}{39}{section.5.3}%
-\contentsline {section}{\numberline {5.4}Прямое обучение цены радужного опциона}{39}{section.5.4}%
-\contentsline {section}{\numberline {5.5}Сводная таблица результатов}{40}{section.5.5}%
-\contentsline {chapter}{Заключение}{42}{chapter*.23}%
-\contentsline {chapter}{Список литературы}{43}{chapter*.24}%
-\contentsline {chapter}{\numberline {A}Подробности по данным}{45}{appendix.A}%
-\contentsline {chapter}{\numberline {B}Технические детали реализации}{46}{appendix.B}%
+\contentsline {section}{\numberline {5.4}Прямое обучение цены радужного опциона}{40}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Сводная таблица результатов}{41}{section.5.5}%
+\contentsline {chapter}{Заключение}{43}{chapter*.25}%
+\contentsline {chapter}{Список литературы}{44}{chapter*.26}%
+\contentsline {chapter}{\numberline {A}Подробности по данным}{46}{appendix.A}%
+\contentsline {chapter}{\numberline {B}Технические детали реализации}{47}{appendix.B}%
